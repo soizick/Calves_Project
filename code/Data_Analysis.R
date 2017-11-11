@@ -1,0 +1,605 @@
+#' ---
+#' title: "Projet GMM5 2017"
+#' author: "Nathalie Villa-Vialaneix"
+#' date: "`r format(Sys.time(), '%d %B, %Y')`"
+#' output:
+#'   html_document:
+#'     toc: yes
+#' ---
+#' 
+## ----setup, include=FALSE------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+#' 
+#' This files is a summary of the work made by GMM5 students on data coming from
+#' ENVT study. 
+#' 
+#' The data are processed using the following packages:
+## ----loadLib, message=FALSE----------------------------------------------
+library(mixOmics)
+library(metagenomeSeq)
+library(reshape2)
+
+#' 
+#' 
+#' # Data description
+#' 
+#' Data are given in two files included in the directory ```data``` :
+#' 
+#' * the first one is the file ```abondances.csv``` that contains microbiote data:
+## ----readAbondances------------------------------------------------------
+df_abundances <- read.delim("../abondances.csv", sep = ",", 
+                            stringsAsFactors = FALSE)
+summary(df_abundances[ ,1:15])
+
+#' The first 9 columns contain information about the different bacteria identified 
+#' within samples. The following columns contain the two technical replicates 
+#' (identified by "A" and "B") of all the farms involved in the study (the farm is
+#' identified by a number preceeding the letter "A"/"B"). 
+#' 
+#' Note that some "blast taxonomy" are duplicated:
+## ----duplicatedTaxonomy--------------------------------------------------
+unique(names(which(table(df_abundances[ ,1]) > 1)))
+
+#' as well as some of the bast id themselves
+## ----duplicatedBlast-----------------------------------------------------
+unique(names(which(table(df_abundances[ ,2]) > 1)))
+
+#' 
+#' **We need to know what to do with those...?**
+#' 
+#' Also, species names are extracted (last not unknown name) by
+## ------------------------------------------------------------------------
+species <- sapply(df_abundances[ ,1], function(aname) 
+  unlist(strsplit(aname, ";")))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
+
+#l'espèce c'est le dernier mot de chaque ligne avec les bactéries
+
+#' 
+#' 
+#' # Microbiote analysis
+#' 
+#' ## Preprocessing and normalization
+#' 
+#' First, the two technical replicates are merged (simple sums as the counts have
+#' already been normalized to identical library sizes)
+## ----countSum------------------------------------------------------------
+abundances <- df_abundances[ ,grep("A_", colnames(df_abundances))] +
+  df_abundances[ ,grep("B_", colnames(df_abundances))]
+dim(abundances)
+
+#' which leads to `r ncol(abundances)` samples (columns) in which 
+#' `r nrow(abundances)` bacteria have been observed (rows).
+#' 
+#' Condition ("EN" or "LBA") is extracted from column names:
+#' 
+## ----condition-----------------------------------------------------------
+condition <- rep("LBA", ncol(abundances))
+condition[grep("EN", colnames(abundances))] <- "EN"
+table(condition)
+
+#' 
+#' Also, the farm identifier is extracted from column names:
+## ----farmID--------------------------------------------------------------
+id_abundances <- as.character(colnames(abundances))
+id_abundances <- sapply(id_abundances, function(ac) 
+  substr(ac, nchar(ac) - 19, nchar(ac) - 18))
+id_abundances <- gsub("A", "0", id_abundances)
+id_abundances <- gsub("N", "0", id_abundances)
+table(id_abundances)
+
+#' All but one farm (idenfier: `r names(which(table(id_abundances) == 1))`) have 
+#' been sampled twice, once for each condition.
+#' 
+#' 
+#' ## Exploratory analysis: distribution of one sample
+#' 
+#' The effect of different normalization is first explored by analyzing the 
+#' distributions of the counts in the first sample before and after normalization.
+#' Distribution before normalization is provided as:
+## ----distBefore----------------------------------------------------------
+df <- abundances
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
+  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution")
+
+#' 
+#' and with a log-transformation by
+## ----distLog-------------------------------------------------------------
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
+  theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
+  ggtitle("Sample 1 distribution (log scale)")
+
+#' 
+#' 
+#' It is commun in metagenomic datasets to perform TSS (*Total Sum Scaling*) before
+#' further normalization. TSS transformation computes relative abundances:
+#' \[
+#'   y_{ij} = \frac{n_{ij}}{\sum_{k=1}^p n_{ik}}
+#' \]
+#' for $n_{ij}$ the counts of species $j$ in sample $i$, $p$ the number of species
+#' and $n$ the number of individuals.
+#' 
+## ----TSS-----------------------------------------------------------------
+abundances_TSS <- apply(abundances, 1, function(asample)
+  asample / sum(asample))
+df <- as.data.frame(t(abundances_TSS))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
+  theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10()
+
+#' 
+#' The next two histograms are based on the normalized counts with:
+#' 
+#' * CLR (*Centered Log Ratio*) transformation: 
+#' \[
+#'   \tilde{y}_{ij} = \log \frac{y_{ij}}{\sqrt[p]{\prod_{k=1}^p y_{ik}}}.
+#' \]
+#' 
+## ----CLRdist-------------------------------------------------------------
+abundances_CLR <- logratio.transfo(abundances_TSS, logratio = "CLR", 
+                                   offset = 1)
+class(abundances_CLR) <- "matrix"
+df <- data.frame(t(abundances_CLR))   # on transpose pour avoir une matrice 406*45 comme les autres
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)")
+
+#' 
+#' * ILR (*Isometric Log Ratio*) transformation 
+#' \[
+#'   \tilde{\mathbf{Y}}' = \tilde{\mathbf{Y}} \times \mathbf{V}
+#' \]
+#' for $\tilde{\mathbf{Y}}$ the matrix of CLR transformed data and a given matrix
+#' $\mathbf{V}$ with $p$ rows and $p-1$ columns such that $\mathbf{V} 
+#' \mathbf{V}^\top = \mathbb{I}_{p-1}$ and $\mathbf{V}^\top \mathbf{V} = 
+#' \mathbb{I} + a \mathbf{1}$, $a$ being any positive number and $\mathbf{1}$ a 
+#' vector full of 1.
+#' 
+## ----IRLdist-------------------------------------------------------------
+abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
+                                   offset = 1)
+class(abundances_ILR) <- "matrix"
+df <- data.frame(t(abundances_ILR))  # on transpose pour avoir une matrice 406*45 comme les autres
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)")
+
+#' 
+#' 
+#' * CSS transformation, which is an adaptative extension for metagenomic data of
+#' the quantile normalization used in microarray expression datasets. It is 
+#' designed so as to account for technical differences between samples. 
+## ----CSSdist-------------------------------------------------------------
+abundances_CSS <- newMRexperiment(abundances)
+abundances_CSS <- cumNorm(abundances_CSS)
+df <- data.frame(MRcounts(abundances_CSS))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)") + scale_y_log10() + scale_x_log10()
+
+#' 
+#' The less asymetric distribution seems to be the one obtained with the CLR 
+#' transformation and the log-transformed CSS.
+#' 
+#' 
+#' ## Exploratory analysis: distribution of all samples
+#' 
+#' Distributions of all samples according to the type of transformation and the 
+#' sample is provided below:
+#' 
+## ----allBoxplots---------------------------------------------------------
+df_log <- log10(abundances + 1)
+names(df_log) <- paste0("Sample", 1:ncol(df_log))
+df_log <- melt(df_log)
+df_CLR <- data.frame(t(abundances_CLR))
+names(df_CLR) <- paste0("Sample", 1:ncol(df_CLR))
+df_CLR <- melt(df_CLR)
+df_ILR <- data.frame(t(abundances_ILR))
+names(df_ILR) <- paste0("Sample", 1:ncol(df_ILR))
+df_ILR <- melt(df_ILR)
+df_CSS <- data.frame(log(MRcounts(abundances_CSS)) + 1)
+names(df_CSS) <- paste0("Sample", 1:ncol(df_CSS))
+df_CSS <- melt(df_CSS)
+all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
+df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
+                 "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
+
+#on transforme notre matrice abundances en vecteur, en gros pour le veau 1 - premier valeur, veau 1 - 2ème valeur et ainsi de suite
+
+ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
+  facet_wrap(~ type, scales = "free_y") + xlab("samples") +
+  theme(axis.text.x = element_blank())
+
+# echelle diférente pour chaque boxplot
+
+#' 
+#' 
+#' ## Exploratory analysis: PCA
+#' 
+#' A first exploratory analysis is performed with PCA on (merged) raw counts with
+#' log transformation:
+## ----pcaRaw--------------------------------------------------------------
+pca_raw <- pca(log(t(abundances) + 1), ncomp = ncol(abundances), 
+               logratio = 'none')
+plot(pca_raw)
+
+#' 
+#' that shows a good percentage of explained variance for the first axis. 
+#' 
+#' Projection of the individuals on the first two PCs also shows a good separation
+#' between the two conditions:
+## ----pcaRawIndiv---------------------------------------------------------
+plotIndiv(pca_raw, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+
+#' 
+#' The same analysis is used with TSS normalized counts subsequently transformed by
+#' CLR or ILR (which is the expected analysis):
+## ----pcaCLR--------------------------------------------------------------
+pca_CLR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS),
+               logratio = 'CLR')
+plot(pca_CLR)
+plotIndiv(pca_CLR, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+
+#' 
+## ----pcaILR--------------------------------------------------------------
+pca_ILR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS) - 1,
+               logratio = 'ILR')
+plot(pca_ILR)
+plotIndiv(pca_ILR, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+
+#' 
+## ----pcaCSS--------------------------------------------------------------
+log_CSS <- log(MRcounts(abundances_CSS) + 1)
+pca_CSS <- pca(t(log_CSS), ncomp = ncol(log_CSS))
+plot(pca_CSS)
+plotIndiv(pca_CSS, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+
+#' 
+#' 
+#' ## Differences between the two types of samples
+#' 
+#' A first PLS-DA is computed (with 10-fold CV) to check the efficiency of the 
+#' method and which type of distance to use in its computation. 
+#' 
+## ----distCV, cache=TRUE--------------------------------------------------
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+names(clean_log) <- paste0(species, 1:length(species))
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
+set.seed(11)
+res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                  progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+
+#' 
+#' PLS-DA shows a good separation between the two groups and indicates that the
+#' Mahalanobis distance provides the lower overall classification error.
+#' 
+#' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
+#' of components to select. 
+#'   
+## ----keepCV, cache=TRUE--------------------------------------------------
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = TRUE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+
+#' 
+#' Finally sparse PLS-DA is performed and the variables explaining the two types of
+#' samples are obtained:
+#' 
+## ----finalPLS-DA---------------------------------------------------------
+res_splsda <- splsda(clean_log, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+
+#' 
+## ----interpretation------------------------------------------------------
+head(selectVar(res_splsda, comp = 1)$value)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+
+###########################################################################################
+
+## ----distCV, cache=TRUE--------------------------------------------------
+clean_CLR <- data.frame(abundances_CLR[id_abundances != "29",])
+names(clean_CLR) <- paste0(species, 1:length(species))
+
+set.seed(11)
+res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+
+#' 
+#' PLS-DA shows a good separation between the two groups and indicates that the
+#' Mahalanobis distance provides the lower overall classification error.
+#' 
+#' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
+#' of components to select. 
+#'   
+## ----keepCV, cache=TRUE--------------------------------------------------
+set.seed(33)
+res_plsda <- tune.splsda(clean_CLR, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = TRUE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+
+#' 
+#' Finally sparse PLS-DA is performed and the variables explaining the two types of
+#' samples are obtained:
+#' 
+## ----finalPLS-DA---------------------------------------------------------
+res_splsda <- splsda(clean_CLR, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+
+#' 
+## ----interpretation------------------------------------------------------
+head(selectVar(res_splsda, comp = 1)$value)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+
+
+
+
+
+
+#SANS MULTILEVEL
+
+########################################################################################################
+
+## ----distCV, cache=TRUE--------------------------------------------------
+
+set.seed(11)
+res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+
+#' 
+#' PLS-DA shows a good separation between the two groups and indicates that the
+#' Mahalanobis distance provides the lower overall classification error.
+#' 
+#' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
+#' of components to select. 
+#'   
+## ----keepCV, cache=TRUE--------------------------------------------------
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = TRUE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+
+#' 
+#' Finally sparse PLS-DA is performed and the variables explaining the two types of
+#' samples are obtained:
+#' 
+## ----finalPLS-DA---------------------------------------------------------
+res_splsda <- splsda(clean_log, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+
+#' 
+## ----interpretation------------------------------------------------------
+head(selectVar(res_splsda, comp = 1)$value)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+
+###########################################################################################
+
+## ----distCV, cache=TRUE--------------------------------------------------
+set.seed(11)
+res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+
+#' 
+#' PLS-DA shows a good separation between the two groups and indicates that the
+#' Mahalanobis distance provides the lower overall classification error.
+#' 
+#' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
+#' of components to select. 
+#'   
+## ----keepCV, cache=TRUE--------------------------------------------------
+set.seed(33)
+res_plsda <- tune.splsda(clean_CLR, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = TRUE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+
+#' 
+#' Finally sparse PLS-DA is performed and the variables explaining the two types of
+#' samples are obtained:
+#' 
+## ----finalPLS-DA---------------------------------------------------------
+res_splsda <- splsda(clean_CLR, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = c(5,25))
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+
+#' 
+## ----interpretation------------------------------------------------------
+head(selectVar(res_splsda, comp = 1)$value)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+
+
+########################################FUSIONNER LES DOUBLONS####################################
+##################################################################################################
+
+list_doublons<-unique(names(which(table(df_abundances[ ,1]) > 1)))
+
+fusion_doublons<-as.data.frame(t(sapply(list_doublons,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
+
+list_pas_doublons <- unique(names(which(table(df_abundances[ ,1]) == 1)))
+
+data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_doublons)
+
+########################################RANDOM FOREST#############################################
+##################################################################################################
+
+rownames(data)<-c(list_pas_doublons,list_doublons)
+colnames(data) <- id_abundances
+data <- data[,-grep("29",id_abundances)]
+dim(data)
+colnames(data) <- paste0("sample",colnames(data))
+
+df_pathogenes<-read.delim("../data/pathogenes.csv",sep = ",")
+pathogenes<-df_pathogenes[,-c(1,9)]
+pathogenes<-as.data.frame(ifelse(pathogenes=='p',1,0))
+pathogenes<-as.data.frame(apply(t(pathogenes),1,as.factor))
+id_pathogenes<-df_pathogenes[,1]
+id_pathogenes <- gsub("-","0",id_pathogenes)
+id_pathogenes <- gsub(" ","",id_pathogenes)
+id_pathogenes <- sapply(as.character(id_pathogenes),FUN=function(x){substr(x,nchar(x)-1,nchar(x))})
+id_pathogenes <- id_pathogenes[-grep("29",id_pathogenes)]
+id_pathogenes <- paste0(id_pathogenes,"_",rev(condition[-grep("29",id_abundances)]))
+#
+# matcher les noms des veaux
+id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
+Y<-pathogenes[match(id_abundances_bis,id_pathogenes),] 
+rownames(Y)<-id_abundances_bis
+
+# # creation echantillon test et apprentissage
+# 
+# set.seed(111) # initialisation du générateur
+# # Extraction des échantillons
+# test.ratio=.2   # part de l'échantillon test
+# npop=ncol(data) # nombre de lignes dans les données
+# nvar=nrow(data) # nombre de colonnes
+# # taille de l'échantillon test
+# ntest=ceiling(npop*test.ratio) 
+# # indices de l'échantillon test
+# testi=sample(1:npop,ntest)
+# # indices de l'échantillon d'apprentissage
+# appri=setdiff(1:npop,testi)
+# # construction de l'échantillon d'apprentissage
+# datappr=data[,appri] 
+# # construction de l'échantillon test
+# datestr=data[,testi] 
+# rf.reg=randomForest(Y$Ct.Coronavirus~., data=datappr,xtest=datestr,ytest=pathogenes[1,],
+#                     ntree=500,do.trace=50,importance=TRUE)
+#
+
+library(randomForest)
+test <- as.data.frame(t(data))
+test <- as.data.frame(sapply(test,as.integer))
+
+colnames(test)<-paste0("var_",1:ncol(test))  # chgt nom des variables pour que RF marche
+
+fit <- randomForest(Y$Ct.Coronavirus ~ ., data = test,ntree=1000,mtry=30)
+print(fit$confusion)
+
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10]
+
+# graphique montrant comment réduit l'OOB en fonction du nombre d'arbres générés
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+
+
+
+
+
+
+#' 
+#' 
+#' 
+#' # Session information
+#' 
+## ----sessionInfo---------------------------------------------------------
+sessionInfo()
+
+#' 
