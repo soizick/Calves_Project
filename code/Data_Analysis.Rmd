@@ -77,6 +77,8 @@ species <- unname(species)
 
 
 
+
+
 # Microbiote analysis
 
 ## Preprocessing and normalization
@@ -117,6 +119,26 @@ table(id_abundances)
 All but one farm (idenfier: `r names(which(table(id_abundances) == 1))`) have 
 been sampled twice, once for each condition.
 
+## Fusion des doublons
+
+```{r }
+list_doublons<-unique(names(which(table(df_abundances[ ,1]) > 1)))
+fusion_doublons<-as.data.frame(t(sapply(list_doublons,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
+list_pas_doublons <- unique(names(which(table(df_abundances[ ,1]) == 1)))
+data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_doublons)
+```
+
+`data` contient maintenant aucun doublon : les doublons ont été additionnés entre eux.
+
+```{r}
+rownames(data)<-c(list_pas_doublons,list_doublons)
+colnames(data) <- id_abundances
+list_bacteria<-rownames(data)   # on stocke le nom des bactéries
+data <- data[,-grep("29",id_abundances)]
+colnames(data) <- paste0("sample",id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
+dim(data)
+```
+
 
 ## Exploratory analysis: distribution of one sample
 
@@ -125,7 +147,8 @@ distributions of the counts in the first sample before and after normalization.
 Distribution before normalization is provided as:
 
 ```{r distBefore}
-df <- abundances
+abundances <- as.data.frame(sapply(data,as.numeric))
+df<-abundances
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
@@ -282,7 +305,7 @@ plotIndiv(pca_raw,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition, 
+          group = condition[-grep("29",id_abundances)], 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for log-tranformed data")
@@ -300,7 +323,7 @@ plotIndiv(pca_CLR,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition, 
+          group = condition[-grep("29",id_abundances)], 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for CLR-tranformed data")
@@ -316,7 +339,7 @@ plotIndiv(pca_ILR,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition, 
+          group = condition[-grep("29",id_abundances)], 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for ILR-tranformed data")
@@ -332,7 +355,7 @@ plotIndiv(pca_CSS,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition, 
+          group = condition[-grep("29",id_abundances)], 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for CSS-tranformed data")
@@ -348,8 +371,8 @@ method and which type of distance to use in its computation.
 ### with log transformation
 
 ```{r distCV, cache=TRUE}
-clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
-names(clean_log) <- paste0(species, 1:length(species))
+clean_log <- data.frame(log(t(abundances) + 1))
+names(clean_log) <- list_bacteria
 clean_condition <- factor(condition[id_abundances != "29"])
 clean_id <- factor(id_abundances[id_abundances != "29"])
 
@@ -407,15 +430,13 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
-
-
 ```
 
 ### with TSS+CLR transformation
 
 ```{r distCV1, cache=TRUE}
-clean_CLR <- data.frame(abundances_CLR[id_abundances != "29",])
-names(clean_CLR) <- paste0(species, 1:length(species))
+clean_CLR <- data.frame(abundances_CLR)
+names(clean_CLR) <- list_bacteria
 
 set.seed(11)
 res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
@@ -449,13 +470,13 @@ res_splsda <- splsda(clean_CLR, clean_condition,
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (CLR)')
 ```
+```{r}
+head(selectVar(res_splsda, comp = 1)$value)
+```
 
 ```{r interpretation1}
-head(selectVar(res_splsda, comp = 1)$value)
-plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
-             size.title = 1)
-plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
-             size.title = 1)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
 ```
 
 ### Sans Multilevel
@@ -549,16 +570,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 ```
 
 
-## Fusion des doublons
 
-```{r }
-list_doublons<-unique(names(which(table(df_abundances[ ,1]) > 1)))
-fusion_doublons<-as.data.frame(t(sapply(list_doublons,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
-list_pas_doublons <- unique(names(which(table(df_abundances[ ,1]) == 1)))
-data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_doublons)
-```
-
-`data` contient maintenant aucun doublon : les doublons ont été additionnés entre eux.
 
 # Random Forest
 
@@ -569,12 +581,6 @@ library(randomForest)
 Préparation des données :
 
 ```{r }
-rownames(data)<-c(list_pas_doublons,list_doublons)
-colnames(data) <- id_abundances
-data <- data[,-grep("29",id_abundances)]
-dim(data)
-colnames(data) <- paste0("sample",colnames(data))
-
 df_pathogenes<-read.delim("../data/pathogenes.csv",sep = ",")
 pathogenes<-df_pathogenes[,-c(1,9)]
 pathogenes<-as.data.frame(ifelse(pathogenes=='p',1,0))
@@ -597,18 +603,17 @@ rownames(Y)<-id_abundances_bis
 ```
 `Y` contient les variables reponse.
 
-Le nom des batéries n'est pas accepté par `RandomForest` donc on les renomme. On les sotcke dans `list_bacteria`. On transpose `data` pour avoir les variables en colonnes et les individus en lignes.
+Le nom des batéries n'est pas accepté par `RandomForest` donc on les renomme. On transpose `data` pour avoir les variables en colonnes et les individus en lignes.
 ```{r }
-list_bacteria<-rownames(data)   # on stocke le nom des bactéries
-test <- as.data.frame(t(data))
-test <- as.data.frame(sapply(test,as.integer))
-colnames(test)<-paste0("var_",1:ncol(test))  # chgt nom des variables pour que RF marche
+X <- as.data.frame(t(data))
+X <- as.data.frame(sapply(X,as.integer))
+colnames(X)<-paste0("var_",1:ncol(X))  # chgt nom des variables pour que RF marche
 ```
 
 ### Random Forest sur `RSV` :
 
 ```{r }
-fit <- randomForest(Y$Ct.RSV ~ ., data = test,ntree=5000,mtry=40)
+fit <- randomForest(Y$Ct.RSV ~ ., data = X,ntree=5000,mtry=40)
 fit$confusion
 ```
 Nothing in class `1`...
@@ -632,7 +637,7 @@ cat(fit$predicted)
 ### Random Forest sur `PI.3` :
 
 ```{r }
-fit <- randomForest(Y$Ct.PI.3 ~ ., data = test,ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,ntree=1000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
@@ -651,7 +656,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `Coronavirus` :
 
 ```{r }
-fit <- randomForest(Y$Ct.Coronavirus ~ ., data = test,ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.Coronavirus ~ ., data = X,ntree=1000,mtry=16)
 fit$confusion
 ```
 High error
@@ -668,7 +673,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `P.multocida` :
 
 ```{r }
-fit <- randomForest(Y$Ct.P.multocida ~ ., data = test,ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,ntree=1000,mtry=10)
 fit$confusion
 ```
 Nothing in class `0`
@@ -686,7 +691,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `M.haemolytica` :
 
 ```{r }
-fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = test,ntree=1000,mtry=40)
+fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,ntree=1000,mtry=40)
 fit$confusion
 ```
 
@@ -705,7 +710,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `M.bovis` :
 
 ```{r }
-fit <- randomForest(Y$Ct.M.bovis ~ ., data = test,ntree=500,mtry=40)
+fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,ntree=500,mtry=40)
 fit$confusion
 ```
 
@@ -724,7 +729,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `H.somni` :
 
 ```{r }
-fit <- randomForest(Y$Ct.H.somni ~ ., data = test,ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.H.somni ~ ., data = X,ntree=1000,mtry=16)
 fit$confusion
 ```
 
@@ -738,7 +743,36 @@ list_bacteria[indices]
 # graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
+## Random Forest sur la condition EN
 
+On sépare les groupes
+```{r}
+X_EN<-X[grep("EN",colnames(abundances)),]
+Y_EN<-Y[grep("EN",colnames(abundances)),]
+cat(colnames(Y_EN))
+```
+
+```{r }
+fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,ntree=5000,mtry=40)
+fit$confusion
+```
+Nothing in class `1`...
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+Prédictions obtenues :
+
+```{r}
+cat(fit$predicted)
+```
 
 ### PLS-DA sur `Y$Ct.Coronavirus`
 
@@ -774,7 +808,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (CLR)')
 plotVar(res_splsda)
 ```
-Si on limite le nombre de variables, nous n'arrivons pas à discrimner de manière linéaire la présence ou l'absence du virus Coronavirus.
+Si on limite le nombre de variables, on n'arrive pas à discrimner de manière linéaire la présence ou l'absence du virus Coronavirus.
 
 
 # Session information
