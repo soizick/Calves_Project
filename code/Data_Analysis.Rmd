@@ -548,6 +548,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
+
 ## Fusion des doublons
 
 ```{r }
@@ -560,6 +561,10 @@ data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_dou
 `data` contient maintenant aucun doublon : les doublons ont été additionnés entre eux.
 
 # Random Forest
+
+```{r}
+library(randomForest)
+```
 
 Préparation des données :
 
@@ -592,8 +597,6 @@ rownames(Y)<-id_abundances_bis
 ```
 `Y` contient les variables reponse.
 
-### Random Forest sur une des variables réponse :
-
 Le nom des batéries n'est pas accepté par `RandomForest` donc on les renomme. On les sotcke dans `list_bacteria`. On transpose `data` pour avoir les variables en colonnes et les individus en lignes.
 ```{r }
 list_bacteria<-rownames(data)   # on stocke le nom des bactéries
@@ -602,12 +605,13 @@ test <- as.data.frame(sapply(test,as.integer))
 colnames(test)<-paste0("var_",1:ncol(test))  # chgt nom des variables pour que RF marche
 ```
 
+### Random Forest sur `RSV` :
+
 ```{r }
-library(randomForest)
-fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = test,ntree=5000,mtry=40)
+fit <- randomForest(Y$Ct.RSV ~ ., data = test,ntree=5000,mtry=40)
 fit$confusion
 ```
-
+Nothing in class `1`...
 ```{r }
 # variables qui discriminent le mieux:
 varImpPlot(fit)
@@ -625,7 +629,152 @@ Prédictions obtenues :
 cat(fit$predicted)
 ```
 
+### Random Forest sur `PI.3` :
 
+```{r }
+fit <- randomForest(Y$Ct.PI.3 ~ ., data = test,ntree=1000,mtry=10)
+fit$confusion
+```
+Nothing in class `1`...
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+
+### Random Forest sur `Coronavirus` :
+
+```{r }
+fit <- randomForest(Y$Ct.Coronavirus ~ ., data = test,ntree=1000,mtry=16)
+fit$confusion
+```
+High error
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+### Random Forest sur `P.multocida` :
+
+```{r }
+fit <- randomForest(Y$Ct.P.multocida ~ ., data = test,ntree=1000,mtry=10)
+fit$confusion
+```
+Nothing in class `0`
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+### Random Forest sur `M.haemolytica` :
+
+```{r }
+fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = test,ntree=1000,mtry=40)
+fit$confusion
+```
+
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+
+### Random Forest sur `M.bovis` :
+
+```{r }
+fit <- randomForest(Y$Ct.M.bovis ~ ., data = test,ntree=500,mtry=40)
+fit$confusion
+```
+
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+
+### Random Forest sur `H.somni` :
+
+```{r }
+fit <- randomForest(Y$Ct.H.somni ~ ., data = test,ntree=1000,mtry=16)
+fit$confusion
+```
+
+```{r }
+# variables qui discriminent le mieux:
+varImpPlot(fit)
+# liste des 10 variables qui discriminent le mieux:
+indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
+list_bacteria[indices]
+
+# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+```
+
+
+### PLS-DA sur `Y$Ct.Coronavirus`
+
+```{r distCVY, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_CLR,Y=Y$Ct.Coronavirus, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (CLR)')
+```
+```{r keepCVY, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_CLR,Y=Y$Ct.Coronavirus, 
+                         ncomp = nlevels(clean_condition),
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY}
+res_splsda <- splsda(X=clean_CLR,Y=Y$Ct.Coronavirus, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = c(10,10))
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (CLR)')
+plotVar(res_splsda)
+```
+Si on limite le nombre de variables, nous n'arrivons pas à discrimner de manière linéaire la présence ou l'absence du virus Coronavirus.
 
 
 # Session information
