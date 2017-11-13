@@ -28,7 +28,7 @@ library(reshape2)
 #' 
 #' * the first one is the file ```abondances.csv``` that contains microbiote data:
 ## ----readAbondances------------------------------------------------------
-df_abundances <- read.delim("../abondances.csv", sep = ",", 
+df_abundances <- read.delim("../data/abondances.csv", sep = ",", 
                             stringsAsFactors = FALSE)
 summary(df_abundances[ ,1:15])
 
@@ -61,7 +61,7 @@ species <- sapply(species, function(avect) {
 species <- unlist(sapply(species, function(avect) avect[length(avect)]))
 species <- unname(species)
 
-#l'espèce c'est le dernier mot de chaque ligne avec les bactéries
+#l'esp?ce c'est le dernier mot de chaque ligne avec les bact?ries
 
 #' 
 #' 
@@ -213,13 +213,13 @@ all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
 df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
                  "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
 
-#on transforme notre matrice abundances en vecteur, en gros pour le veau 1 - premier valeur, veau 1 - 2ème valeur et ainsi de suite
+#on transforme notre matrice abundances en vecteur, en gros pour le veau 1 - premier valeur, veau 1 - 2?me valeur et ainsi de suite
 
 ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
   facet_wrap(~ type, scales = "free_y") + xlab("samples") +
   theme(axis.text.x = element_blank())
 
-# echelle diférente pour chaque boxplot
+# echelle dif?rente pour chaque boxplot
 
 #' 
 #' 
@@ -349,9 +349,9 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 
-###########################################################################################
 
-## ----distCV, cache=TRUE--------------------------------------------------
+
+## ----distCV1, cache=TRUE--------------------------------------------------
 clean_CLR <- data.frame(abundances_CLR[id_abundances != "29",])
 names(clean_CLR) <- paste0(species, 1:length(species))
 
@@ -370,7 +370,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 #' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 #' of components to select. 
 #'   
-## ----keepCV, cache=TRUE--------------------------------------------------
+## ----keepCV1, cache=TRUE--------------------------------------------------
 set.seed(33)
 res_plsda <- tune.splsda(clean_CLR, clean_condition, 
                          ncomp = nlevels(clean_condition),
@@ -388,7 +388,7 @@ sel_keepX
 #' Finally sparse PLS-DA is performed and the variables explaining the two types of
 #' samples are obtained:
 #' 
-## ----finalPLS-DA---------------------------------------------------------
+## ----finalPLS-DA1---------------------------------------------------------
 res_splsda <- splsda(clean_CLR, clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
                      keepX = sel_keepX)
@@ -397,7 +397,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
 
 #' 
-## ----interpretation------------------------------------------------------
+## ----interpretation1------------------------------------------------------
 head(selectVar(res_splsda, comp = 1)$value)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
@@ -408,12 +408,11 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 
 
+#' 
+#' 
+#' # Sans Multilevel
 
-#SANS MULTILEVEL
-
-########################################################################################################
-
-## ----distCV, cache=TRUE--------------------------------------------------
+## ----distCV2, cache=TRUE--------------------------------------------------
 
 set.seed(11)
 res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
@@ -430,7 +429,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 #' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 #' of components to select. 
 #'   
-## ----keepCV, cache=TRUE--------------------------------------------------
+## ----keepCV2, cache=TRUE--------------------------------------------------
 set.seed(33)
 res_plsda <- tune.splsda(clean_log, clean_condition, 
                          ncomp = nlevels(clean_condition),
@@ -447,7 +446,7 @@ sel_keepX
 #' Finally sparse PLS-DA is performed and the variables explaining the two types of
 #' samples are obtained:
 #' 
-## ----finalPLS-DA---------------------------------------------------------
+## ----finalPLS-DA2---------------------------------------------------------
 res_splsda <- splsda(clean_log, clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
                      keepX = sel_keepX)
@@ -456,16 +455,16 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
 
 #' 
-## ----interpretation------------------------------------------------------
+## ----interpretation2------------------------------------------------------
 head(selectVar(res_splsda, comp = 1)$value)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 
-###########################################################################################
 
-## ----distCV, cache=TRUE--------------------------------------------------
+
+## ----distCV3, cache=TRUE--------------------------------------------------
 set.seed(11)
 res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
@@ -481,7 +480,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 #' Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 #' of components to select. 
 #'   
-## ----keepCV, cache=TRUE--------------------------------------------------
+## ----keepCV3, cache=TRUE--------------------------------------------------
 set.seed(33)
 res_plsda <- tune.splsda(clean_CLR, clean_condition, 
                          ncomp = nlevels(clean_condition),
@@ -498,7 +497,7 @@ sel_keepX
 #' Finally sparse PLS-DA is performed and the variables explaining the two types of
 #' samples are obtained:
 #' 
-## ----finalPLS-DA---------------------------------------------------------
+## ----finalPLS-DA3---------------------------------------------------------
 res_splsda <- splsda(clean_CLR, clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
                      keepX = c(5,25))
@@ -507,27 +506,25 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
 
 #' 
-## ----interpretation------------------------------------------------------
+## ----interpretation3------------------------------------------------------
 head(selectVar(res_splsda, comp = 1)$value)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 
-
-########################################FUSIONNER LES DOUBLONS####################################
-##################################################################################################
+#' 
+#' 
+#' ## Fusion des doublons
 
 list_doublons<-unique(names(which(table(df_abundances[ ,1]) > 1)))
-
 fusion_doublons<-as.data.frame(t(sapply(list_doublons,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
-
 list_pas_doublons <- unique(names(which(table(df_abundances[ ,1]) == 1)))
-
 data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_doublons)
 
-########################################RANDOM FOREST#############################################
-##################################################################################################
+#' 
+#' 
+#' # Random Forest
 
 rownames(data)<-c(list_pas_doublons,list_doublons)
 colnames(data) <- id_abundances
@@ -551,27 +548,6 @@ id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",conditi
 Y<-pathogenes[match(id_abundances_bis,id_pathogenes),] 
 rownames(Y)<-id_abundances_bis
 
-# # creation echantillon test et apprentissage
-# 
-# set.seed(111) # initialisation du générateur
-# # Extraction des échantillons
-# test.ratio=.2   # part de l'échantillon test
-# npop=ncol(data) # nombre de lignes dans les données
-# nvar=nrow(data) # nombre de colonnes
-# # taille de l'échantillon test
-# ntest=ceiling(npop*test.ratio) 
-# # indices de l'échantillon test
-# testi=sample(1:npop,ntest)
-# # indices de l'échantillon d'apprentissage
-# appri=setdiff(1:npop,testi)
-# # construction de l'échantillon d'apprentissage
-# datappr=data[,appri] 
-# # construction de l'échantillon test
-# datestr=data[,testi] 
-# rf.reg=randomForest(Y$Ct.Coronavirus~., data=datappr,xtest=datestr,ytest=pathogenes[1,],
-#                     ntree=500,do.trace=50,importance=TRUE)
-#
-
 library(randomForest)
 test <- as.data.frame(t(data))
 test <- as.data.frame(sapply(test,as.integer))
@@ -586,7 +562,7 @@ varImpPlot(fit)
 # liste des 10 variables qui discriminent le mieux:
 (fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10]
 
-# graphique montrant comment réduit l'OOB en fonction du nombre d'arbres générés
+# graphique montrant comment r?duit l'OOB en fonction du nombre d'arbres g?n?r?s
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 
 
