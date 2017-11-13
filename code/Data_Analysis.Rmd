@@ -375,6 +375,7 @@ clean_log <- data.frame(log(t(abundances) + 1))
 names(clean_log) <- list_bacteria
 clean_condition <- factor(condition[id_abundances != "29"])
 clean_id <- factor(id_abundances[id_abundances != "29"])
+colnames(clean_log)<-paste0("var_",1:ncol(clean_log)) 
 
 set.seed(11)
 res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
@@ -425,18 +426,22 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
 
 
 ```{r interpretation}
-head(selectVar(res_splsda, comp = 1)$value)
+head(selectVar(res_splsda, comp = 1)$name)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
+```
+```{r}
+indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
+rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
 ```
 
 ### with TSS+CLR transformation
 
 ```{r distCV1, cache=TRUE}
 clean_CLR <- data.frame(abundances_CLR)
-names(clean_CLR) <- list_bacteria
+names(clean_CLR) <- paste0("var_",1:ncol(clean_CLR))
 
 set.seed(11)
 res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
@@ -477,6 +482,10 @@ head(selectVar(res_splsda, comp = 1)$value)
 ```{r interpretation1}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
+```
+```{r}
+indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
+rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
 ```
 
 ### Sans Multilevel
@@ -525,6 +534,10 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 
 ```
+```{r}
+indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
+rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
+```
 
 ### with TSS+CLR transformation
 
@@ -568,9 +581,10 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
-
-
-
+```{r}
+indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
+rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
+```
 
 # Random Forest
 
