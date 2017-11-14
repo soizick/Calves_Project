@@ -19,9 +19,9 @@ ENVT study.
 The data are processed using the following packages:
 
 ```{r loadLib, message=FALSE}
-library(mixOmics)
-library(metagenomeSeq)
-library(reshape2)
+library(mixOmics,quietly = T)
+library(metagenomeSeq,quietly = T)
+library(reshape2,quietly = T)
 ```
 
 
@@ -71,10 +71,11 @@ species <- sapply(species, function(avect) {
 })
 species <- unlist(sapply(species, function(avect) avect[length(avect)]))
 species <- unname(species)
-
-#l'esp?ce c'est le dernier mot de chaque ligne avec les bact?ries
+length(unique(species))
+#l'espece c'est le dernier mot de chaque ligne avec les bacteries
 ```
 
+The length of unique species is not the same as unique bacteria...
 
 
 
@@ -221,7 +222,7 @@ vector full of 1.
 abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
                                    offset = 1)
 class(abundances_ILR) <- "matrix"
-df <- data.frame(t(abundances_ILR))  # on transpose pour avoir une matrice 406*45 comme les autres
+df <- data.frame(t(abundances_ILR))  # on transpose pour avoir une matrice 273*45 comme les autres
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
@@ -255,7 +256,7 @@ Distributions of all samples according to the type of transformation and the
 sample is provided below:
 
 
-```{r allBoxplots}
+```{r allBoxplots, message=FALSE}
 df_log <- log10(abundances + 1)
 names(df_log) <- paste0("Sample", 1:ncol(df_log))
 df_log <- melt(df_log)
@@ -271,7 +272,9 @@ df_CSS <- melt(df_CSS)
 all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
 df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
                  "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
+```
 
+```{r}
 #on transforme notre matrice abundances en vecteur, en gros pour le veau 1 - premier valeur, veau 1 - 2?me valeur et ainsi de suite
 
 ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
@@ -280,8 +283,6 @@ ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
 
 # echelle dif?rente pour chaque boxplot
 ```
-
-
 
 ## Exploratory analysis: PCA
 
@@ -589,7 +590,7 @@ rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
 # Random Forest
 
 ```{r}
-library(randomForest)
+library(randomForest,quietly=T)
 ```
 
 Préparation des données :
@@ -627,7 +628,7 @@ colnames(X)<-paste0("var_",1:ncol(X))  # chgt nom des variables pour que RF marc
 ### Random Forest sur `RSV` :
 
 ```{r }
-fit <- randomForest(Y$Ct.RSV ~ ., data = X,ntree=5000,mtry=40)
+fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=c(1E-3,1E3),ntree=3000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
@@ -651,7 +652,7 @@ cat(fit$predicted)
 ### Random Forest sur `PI.3` :
 
 ```{r }
-fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=table(Y$Ct.PI.3),ntree=1000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
@@ -670,7 +671,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `Coronavirus` :
 
 ```{r }
-fit <- randomForest(Y$Ct.Coronavirus ~ ., data = X,ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,classwt=table(Y$Ct.Coronavirus),ntree=2000,mtry=16)
 fit$confusion
 ```
 High error
@@ -687,7 +688,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `P.multocida` :
 
 ```{r }
-fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=table(Y$Ct.P.multocida),ntree=1000,mtry=16)
 fit$confusion
 ```
 Nothing in class `0`
@@ -705,7 +706,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `M.haemolytica` :
 
 ```{r }
-fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,ntree=1000,mtry=40)
+fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,classwt=table(Y$Ct.M.haemolytica),ntree=1000,mtry=40)
 fit$confusion
 ```
 
@@ -724,7 +725,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `M.bovis` :
 
 ```{r }
-fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,ntree=500,mtry=40)
+fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=table(Y$Ct.M.bovis) , ntree=500,mtry=40)
 fit$confusion
 ```
 
@@ -743,7 +744,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 ### Random Forest sur `H.somni` :
 
 ```{r }
-fit <- randomForest(Y$Ct.H.somni ~ ., data = X,ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.H.somni ~ ., data = X,classwt=table(Y$Ct.H.somni),ntree=1000,mtry=16)
 fit$confusion
 ```
 
@@ -757,6 +758,7 @@ list_bacteria[indices]
 # graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
+
 ## Random Forest sur la condition EN
 
 On sépare les groupes
@@ -767,7 +769,7 @@ cat(colnames(Y_EN))
 ```
 
 ```{r }
-fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni),ntree=5000,mtry=40)
 fit$confusion
 ```
 Nothing in class `1`...
