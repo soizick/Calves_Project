@@ -1,6 +1,6 @@
 ---
 title: "Projet GMM5 2017"
-author: "Nathalie Villa-Vialaneix"
+author: "Nathalie Villa-Vialaneix, Gicu Stratan and Soizick Magon de La Giclais"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
@@ -19,12 +19,10 @@ ENVT study.
 The data are processed using the following packages:
 
 ```{r loadLib, message=FALSE}
-library(mixOmics,quietly = T)
-library(metagenomeSeq,quietly = T)
-library(reshape2,quietly = T)
+library(mixOmics)
+library(metagenomeSeq)
+library(reshape2)
 ```
-
-
 
 # Data description
 
@@ -55,9 +53,6 @@ as well as some of the bast id themselves
 unique(names(which(table(df_abundances[ ,2]) > 1)))
 ```
 
-
-**We need to know what to do with those...?**
-
 Also, species names are extracted (last not unknown name) by
 
 ```{r }
@@ -75,10 +70,7 @@ length(unique(species))
 #l'espece c'est le dernier mot de chaque ligne avec les bacteries
 ```
 
-The length of unique species is not the same as unique bacteria...
-
-
-
+The length of `unique(species)` is not the same as `unique(list_bacteria)`... maybe because the last not unknown name selected of one bacteria can be the same as a known species name ?
 
 # Microbiote analysis
 
@@ -98,13 +90,11 @@ which leads to `r ncol(abundances)` samples (columns) in which
 
 Condition ("EN" or "LBA") is extracted from column names:
 
-
 ```{r condition}
 condition <- rep("LBA", ncol(abundances))
 condition[grep("EN", colnames(abundances))] <- "EN"
 table(condition)
 ```
-
 
 Also, the farm identifier is extracted from column names:
 
@@ -120,26 +110,26 @@ table(id_abundances)
 All but one farm (idenfier: `r names(which(table(id_abundances) == 1))`) have 
 been sampled twice, once for each condition.
 
-## Fusion des doublons
+## Merging duplicates
 
 ```{r }
-list_doublons<-unique(names(which(table(df_abundances[ ,1]) > 1)))
-fusion_doublons<-as.data.frame(t(sapply(list_doublons,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
-list_pas_doublons <- unique(names(which(table(df_abundances[ ,1]) == 1)))
-data <- rbind(abundances[match(list_pas_doublons,df_abundances[,1]),],fusion_doublons)
+list_duplicates<-unique(names(which(table(df_abundances[ ,1]) > 1)))
+duplicates_merged<-as.data.frame(t(sapply(list_duplicates,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
+list_pas_duplicates <- unique(names(which(table(df_abundances[ ,1]) == 1)))
+clean_data <- rbind(abundances[match(list_pas_duplicates,df_abundances[,1]),],duplicates_merged)
 ```
 
-`data` contient maintenant aucun doublon : les doublons ont été additionnés entre eux.
+`clean_data` does not contain any duplicate: duplicates have been added together.
 
 ```{r}
-rownames(data)<-c(list_pas_doublons,list_doublons)
-colnames(data) <- id_abundances
-list_bacteria<-rownames(data)   # on stocke le nom des bactéries
-data <- data[,-grep("29",id_abundances)]
-colnames(data) <- paste0("sample",id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
-dim(data)
+rownames(clean_data)<-c(list_pas_duplicates,list_duplicates)
+colnames(clean_data) <- id_abundances
+list_bacteria<-rownames(clean_data)   # we keep the bacteria names
+clean_data <- clean_data[,-grep("29",id_abundances)]
+colnames(clean_data) <- paste0("sample",id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
+dim(clean_data)
 ```
-
+We now have `r ncol(clean_data)` samples and `r nrow(clean_data)` bacteria.
 
 ## Exploratory analysis: distribution of one sample
 
@@ -148,12 +138,12 @@ distributions of the counts in the first sample before and after normalization.
 Distribution before normalization is provided as:
 
 ```{r distBefore}
-abundances <- as.data.frame(sapply(data,as.numeric))
+abundances <- as.data.frame(sapply(clean_data,as.numeric))
 df<-abundances
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
-  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution")
+  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
 ```
 
 
@@ -177,13 +167,12 @@ and $n$ the number of individuals.
 
 
 ```{r TSS}
-abundances_TSS <- apply(abundances, 1, function(asample)
-  asample / sum(asample))
+abundances_TSS <- apply(abundances, 1, function(asample)  asample / sum(asample))
 df <- as.data.frame(t(abundances_TSS))
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
-  theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10()
+  theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10() + ggtitle("Sample 1 distribution (TSS)")
 ```
 
 
@@ -199,13 +188,12 @@ The next two histograms are based on the normalized counts with:
 abundances_CLR <- logratio.transfo(abundances_TSS, logratio = "CLR", 
                                    offset = 1)
 class(abundances_CLR) <- "matrix"
-df <- data.frame(t(abundances_CLR))   # on transpose pour avoir une matrice 406*45 comme les autres
+df <- data.frame(t(abundances_CLR))   
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
-  xlab("counts (sample 1)")
+  xlab("counts (sample 1)") + ggtitle("Sample 1 distribution (CLR)")
 ```
-
 
 * ILR (*Isometric Log Ratio*) transformation 
 \[
@@ -222,14 +210,12 @@ vector full of 1.
 abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
                                    offset = 1)
 class(abundances_ILR) <- "matrix"
-df <- data.frame(t(abundances_ILR))  # on transpose pour avoir une matrice 273*45 comme les autres
+df <- data.frame(t(abundances_ILR)) 
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
-  xlab("counts (sample 1)")
+  xlab("counts (sample 1)") + ggtitle("Sample 1 distribution (ILR)")
 ```
-
-
 
 * CSS transformation, which is an adaptative extension for metagenomic data of
 the quantile normalization used in microarray expression datasets. It is 
@@ -245,16 +231,13 @@ ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) + theme_bw() +
   xlab("counts (sample 1)") + scale_y_log10() + scale_x_log10()
 ```
 
-
 The less asymetric distribution seems to be the one obtained with the CLR 
 transformation and the log-transformed CSS.
-
 
 ## Exploratory analysis: distribution of all samples
 
 Distributions of all samples according to the type of transformation and the 
 sample is provided below:
-
 
 ```{r allBoxplots, message=FALSE}
 df_log <- log10(abundances + 1)
@@ -275,16 +258,14 @@ df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
 ```
 
 ```{r}
-#on transforme notre matrice abundances en vecteur, en gros pour le veau 1 - premier valeur, veau 1 - 2?me valeur et ainsi de suite
-
 ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
   facet_wrap(~ type, scales = "free_y") + xlab("samples") +
   theme(axis.text.x = element_blank())
-
-# echelle dif?rente pour chaque boxplot
 ```
 
 ## Exploratory analysis: PCA
+
+**Log**
 
 A first exploratory analysis is performed with PCA on (merged) raw counts with
 log transformation:
@@ -294,7 +275,6 @@ pca_raw <- pca(log(t(abundances) + 1), ncomp = ncol(abundances),
                logratio = 'none')
 plot(pca_raw)
 ```
-
 
 that shows a good percentage of explained variance for the first axis. 
 
@@ -312,6 +292,7 @@ plotIndiv(pca_raw,
           title="PCA for log-tranformed data")
 ```
 
+**TSS+CLR**
 
 The same analysis is used with TSS normalized counts subsequently transformed by
 CLR or ILR (which is the expected analysis):
@@ -329,8 +310,7 @@ plotIndiv(pca_CLR,
           legend = TRUE,
           title="PCA for CLR-tranformed data")
 ```
-
-
+**TSS+ILR**
 
 ```{r pcaILR}
 pca_ILR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS) - 1,
@@ -346,7 +326,7 @@ plotIndiv(pca_ILR,
           title="PCA for ILR-tranformed data")
 ```
 
-
+**CSS**
 
 ```{r pcaCSS}
 log_CSS <- log(MRcounts(abundances_CSS) + 1)
@@ -361,8 +341,6 @@ plotIndiv(pca_CSS,
           legend = TRUE,
           title="PCA for CSS-tranformed data")
 ```
-
-
 
 ## Differences between the two types of samples
 
@@ -394,7 +372,6 @@ Mahalanobis distance provides the lower overall classification error.
 Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 of components to select. 
   
-
 ```{r keepCV, cache=TRUE}
 set.seed(33)
 res_plsda <- tune.splsda(clean_log, clean_condition, 
@@ -423,8 +400,6 @@ res_splsda <- splsda(clean_log, clean_condition,
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (log)')
 ```
-
-
 
 ```{r interpretation}
 head(selectVar(res_splsda, comp = 1)$name)
@@ -489,7 +464,7 @@ indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
 rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
 ```
 
-### Sans Multilevel
+### **Sans Multilevel**
 
 ### with log transformation
 
@@ -520,7 +495,7 @@ sel_keepX
 
 ```{r finalPLS-DA2}
 res_splsda <- splsda(clean_log, clean_condition, 
-                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     ncomp = nlevels(clean_condition),
                      keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
@@ -568,7 +543,7 @@ sel_keepX
 
 ```{r finalPLS-DA3}
 res_splsda <- splsda(clean_CLR, clean_condition, 
-                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     ncomp = nlevels(clean_condition),
                      keepX = c(5,25))
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
@@ -589,11 +564,13 @@ rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
 
 # Random Forest
 
-```{r}
+In this section will be performed RandomForest algorithm for classification, with a virus as response vector and all bacteria as explanatory variables in the model.
+
+```{r , message=FALSE}
 library(randomForest,quietly=T)
 ```
 
-Préparation des données :
+Data preparation:
 
 ```{r }
 df_pathogenes<-read.delim("../data/pathogenes.csv",sep = ",")
@@ -608,24 +585,33 @@ id_pathogenes <- id_pathogenes[-grep("29",id_pathogenes)]
 id_pathogenes <- paste0(id_pathogenes,"_",rev(condition[-grep("29",id_abundances)]))
 ```
 
-Matcher les noms des veaux (puisque l'ordre de la liste de veaux dans le fichier `pathogenes` n'est pas le même que dans le fichier `abundances`) :
+The list of calve names is not in the same order in the `pathogenes` file as in the `abundances` file. We decided to keep the  `abundances` file order:
 
 ```{r }
-
-id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
+id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",
+                            condition[-grep("29",id_abundances)])
 Y<-pathogenes[match(id_abundances_bis,id_pathogenes),] 
 rownames(Y)<-id_abundances_bis
 ```
-`Y` contient les variables reponse.
 
-Le nom des batéries n'est pas accepté par `RandomForest` donc on les renomme. On transpose `data` pour avoir les variables en colonnes et les individus en lignes.
-```{r }
-X <- as.data.frame(t(data))
-X <- as.data.frame(sapply(X,as.integer))
-colnames(X)<-paste0("var_",1:ncol(X))  # chgt nom des variables pour que RF marche
+`Y` contains the seven response vectors.
+
+```{r}
+cat(" 0  1\n\n")
+for (virus in colnames(Y)){
+  cat(virus,"\n",table(Y[,virus]),fill=T)
+}
 ```
 
-### Random Forest sur `RSV` :
+The bacteria names are too long for the plots, they will be renamed:
+
+```{r }
+X <- as.data.frame(t(clean_data))
+X <- as.data.frame(sapply(X,as.integer))
+colnames(X)<-paste0("var_",1:ncol(X)) 
+```
+
+### Random Forest on `RSV` virus:
 
 ```{r }
 fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=c(1E-3,1E3),ntree=3000,mtry=10)
@@ -643,8 +629,6 @@ list_bacteria[indices]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-Prédictions obtenues :
-
 ```{r}
 cat(fit$predicted)
 ```
@@ -652,158 +636,137 @@ cat(fit$predicted)
 ### Random Forest sur `PI.3` :
 
 ```{r }
-fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=table(Y$Ct.PI.3),ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=c(1E-2,1E3),ntree=1000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
 ```{r }
-# variables qui discriminent le mieux:
+# Best variables:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
+# 10 best variables:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
 
-### Random Forest sur `Coronavirus` :
+### Random Forest on `Coronavirus` :
 
 ```{r }
-fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,classwt=table(Y$Ct.Coronavirus),ntree=2000,mtry=16)
+fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,ntree=2000,mtry=16)
 fit$confusion
 ```
 High error
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
+
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-### Random Forest sur `P.multocida` :
+### Random Forest on `P.multocida` virus :
 
 ```{r }
-fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=table(Y$Ct.P.multocida),ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=c(1E2,1E-3),ntree=1000,mtry=16)
 fit$confusion
 ```
 Nothing in class `0`
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-### Random Forest sur `M.haemolytica` :
+### Random Forest on `M.haemolytica` virus:
 
 ```{r }
-fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,classwt=table(Y$Ct.M.haemolytica),ntree=1000,mtry=40)
+fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,ntree=1000,mtry=40)
 fit$confusion
 ```
 
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
 
-### Random Forest sur `M.bovis` :
+### Random Forest on `M.bovis` virus:
 
 ```{r }
-fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=table(Y$Ct.M.bovis) , ntree=500,mtry=40)
+fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=c(1E-3,1E3) , ntree=500,mtry=40)
 fit$confusion
 ```
 
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
 
-### Random Forest sur `H.somni` :
+### Random Forest on `H.somni` :
 
 ```{r }
-fit <- randomForest(Y$Ct.H.somni ~ ., data = X,classwt=table(Y$Ct.H.somni),ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.H.somni ~ ., data = X,ntree=1000,mtry=16)
 fit$confusion
 ```
 
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-## Random Forest sur la condition EN
+## Random Forest on EN condition
 
-On sépare les groupes
+Study only on EN condition samples
 ```{r}
 X_EN<-X[grep("EN",colnames(abundances)),]
 Y_EN<-Y[grep("EN",colnames(abundances)),]
-cat(colnames(Y_EN))
 ```
 
 ```{r }
-fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni),ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,ntree=5000,mtry=40)
 fit$confusion
 ```
 Nothing in class `1`...
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
 indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
 list_bacteria[indices]
 
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
-
-Prédictions obtenues :
 
 ```{r}
 cat(fit$predicted)
 ```
 
-### PLS-DA sur `Y$Ct.Coronavirus`
+### PLS-DA on `Y$Ct.Coronavirus`
 
 ```{r distCVY, cache=TRUE}
 set.seed(11)
-res_plsda <- plsda(X=clean_CLR,Y=Y$Ct.Coronavirus, ncomp = nlevels(clean_condition))
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.Coronavirus, ncomp = nlevels(clean_condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
                  progressBar = FALSE, nrepeat = 20)
 plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'PLS-DA (CLR)')
+          legend = TRUE, title = 'PLS-DA (log)')
 ```
 ```{r keepCVY, cache=TRUE}
 set.seed(33)
-res_plsda <- tune.splsda(X=clean_CLR,Y=Y$Ct.Coronavirus, 
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
                          ncomp = nlevels(clean_condition),
                          test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
@@ -816,12 +779,12 @@ sel_keepX
 ```
 
 ```{r finalPLS-DAY}
-res_splsda <- splsda(X=clean_CLR,Y=Y$Ct.Coronavirus, 
-                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
+                     ncomp = nlevels(clean_condition),
                      keepX = c(10,10))
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA (CLR)')
+          legend = TRUE, title = 'sPLS-DA (log)')
 plotVar(res_splsda)
 ```
 Si on limite le nombre de variables, on n'arrive pas à discrimner de manière linéaire la présence ou l'absence du virus Coronavirus.
