@@ -53,24 +53,6 @@ as well as some of the bast id themselves
 unique(names(which(table(df_abundances[ ,2]) > 1)))
 ```
 
-Also, species names are extracted (last not unknown name) by
-
-```{r }
-species <- sapply(df_abundances[ ,1], function(aname) 
-  unlist(strsplit(aname, ";")))
-species <- sapply(species, function(avect) {
-  find_unknown <- grep("unknown", avect)
-  if (length(find_unknown) > 0) {
-    return(avect[-find_unknown])
-  } else return(avect)
-})
-species <- unlist(sapply(species, function(avect) avect[length(avect)]))
-species <- unname(species)
-length(unique(species))
-#l'espece c'est le dernier mot de chaque ligne avec les bacteries
-```
-
-The length of `unique(species)` is not the same as `unique(list_bacteria)`... maybe because the last not unknown name selected of one bacteria can be the same as a known species name ?
 
 # Microbiote analysis
 
@@ -93,6 +75,7 @@ Condition ("EN" or "LBA") is extracted from column names:
 ```{r condition}
 condition <- rep("LBA", ncol(abundances))
 condition[grep("EN", colnames(abundances))] <- "EN"
+condition <- factor(condition)
 table(condition)
 ```
 
@@ -112,24 +95,41 @@ been sampled twice, once for each condition.
 
 ## Merging duplicates
 
-```{r }
-list_duplicates<-unique(names(which(table(df_abundances[ ,1]) > 1)))
-duplicates_merged<-as.data.frame(t(sapply(list_duplicates,FUN=function(x){as.data.frame(t(colSums(abundances[grep(x,df_abundances[,1]),])))})))
-list_pas_duplicates <- unique(names(which(table(df_abundances[ ,1]) == 1)))
-clean_data <- rbind(abundances[match(list_pas_duplicates,df_abundances[,1]),],duplicates_merged)
+Duplicated species (based on identical taxonomies) are then merged (counts are
+summed). To do so, first simplified species names are obtained (last unknown 
+species for every row):
+```{r extractSpecies}
+species <- sapply(df_abundances[ ,1], function(aname) 
+  unlist(strsplit(aname, ";")))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
 ```
 
-`clean_data` does not contain any duplicate: duplicates have been added together.
+Then, counts corresponding to the same simplified name are summed:
 
-```{r}
-rownames(clean_data)<-c(list_pas_duplicates,list_duplicates)
-colnames(clean_data) <- id_abundances
-list_bacteria<-rownames(clean_data)   # we keep the bacteria names
-clean_data <- clean_data[,-grep("29",id_abundances)]
-colnames(clean_data) <- paste0("sample",id_abundances[-grep("29",id_abundances)],"_",condition[-grep("29",id_abundances)])
-dim(clean_data)
+```{r mergedTaxon}
+abundances <- apply(abundances, 2, function(acol) tapply(acol, species, sum))
 ```
-We now have `r ncol(clean_data)` samples and `r nrow(clean_data)` bacteria.
+
+and the species names are retrieved:
+```{r finalSpecies}
+species <- rownames(abundances)
+```
+
+One species has an unexpected name:
+```{r exploreSpecies}
+head(species)
+```
+
+that corresponds to the row number `r grep("&", df_abundances[ ,1])` in the
+original data (checked also directly in the file sent by Elias on 10/09).
+
 
 ## Exploratory analysis: distribution of one sample
 
@@ -138,10 +138,8 @@ distributions of the counts in the first sample before and after normalization.
 Distribution before normalization is provided as:
 
 ```{r distBefore}
-abundances <- as.data.frame(sapply(clean_data,as.numeric))
-df<-abundances
+df <- data.frame(abundances)
 names(df) <- paste0("sample", 1:ncol(df))
-dim(df)
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
   theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
 ```
@@ -241,6 +239,8 @@ sample is provided below:
 
 ```{r allBoxplots, message=FALSE}
 df_log <- log10(abundances + 1)
+df_log <- data.frame(df_log)
+rownames(df_log) <- NULL
 names(df_log) <- paste0("Sample", 1:ncol(df_log))
 df_log <- melt(df_log)
 df_CLR <- data.frame(t(abundances_CLR))
@@ -255,6 +255,9 @@ df_CSS <- melt(df_CSS)
 all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
 df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
                  "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
+ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
+  facet_wrap(~ type, scales = "free_y") + xlab("samples") +
+  theme(axis.text.x = element_blank())
 ```
 
 ```{r}
@@ -286,7 +289,7 @@ plotIndiv(pca_raw,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition[-grep("29",id_abundances)], 
+          group = condition, 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for log-tranformed data")
@@ -305,7 +308,7 @@ plotIndiv(pca_CLR,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition[-grep("29",id_abundances)], 
+          group = condition, 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for CLR-tranformed data")
@@ -320,7 +323,7 @@ plotIndiv(pca_ILR,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition[-grep("29",id_abundances)], 
+          group = condition, 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for ILR-tranformed data")
@@ -336,7 +339,7 @@ plotIndiv(pca_CSS,
           comp = c(1,2),
           pch = 16, 
           ind.names = FALSE, 
-          group = condition[-grep("29",id_abundances)], 
+          group = condition, 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for CSS-tranformed data")
@@ -350,19 +353,13 @@ method and which type of distance to use in its computation.
 ### with log transformation
 
 ```{r distCV, cache=TRUE}
-clean_log <- data.frame(log(t(abundances) + 1))
-names(clean_log) <- list_bacteria
-clean_condition <- factor(condition[id_abundances != "29"])
-clean_id <- factor(id_abundances[id_abundances != "29"])
-colnames(clean_log)<-paste0("var_",1:ncol(clean_log)) 
-
 set.seed(11)
-res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
+res_plsda <- plsda(log(t(abundances)+1), condition, ncomp = nlevels(condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
                   progressBar = FALSE, nrepeat = 20)
 plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = "PLS-DA (log)")
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
 ```
 
 
@@ -373,13 +370,18 @@ Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 of components to select. 
   
 ```{r keepCV, cache=TRUE}
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+names(clean_log) <- species
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
 set.seed(33)
 res_plsda <- tune.splsda(clean_log, clean_condition, 
                          ncomp = nlevels(clean_condition),
                          multilevel = clean_id,
-                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
-                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
-                         progressBar = F)
+                         test.keepX = 1:20, validation = 'Mfold', folds = 10, 
+                         dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
 
 plot(res_plsda)
 
@@ -398,7 +400,7 @@ res_splsda <- splsda(clean_log, clean_condition,
                      keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA (log)')
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
 ```
 
 ```{r interpretation}
@@ -408,19 +410,16 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
-```{r}
-indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
-rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
-```
+
 
 ### with TSS+CLR transformation
 
 ```{r distCV1, cache=TRUE}
-clean_CLR <- data.frame(abundances_CLR)
-names(clean_CLR) <- paste0("var_",1:ncol(clean_CLR))
+abundances_CLR <- data.frame(abundances_CLR)
+names(abundances_CLR) <- species
 
 set.seed(11)
-res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
+res_plsda <- plsda(abundances_CLR, condition, ncomp = nlevels(condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
                  progressBar = FALSE, nrepeat = 20)
 plot(res_perf, overlay = 'measure', sd = TRUE)
@@ -429,13 +428,16 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 ```
 
 ```{r keepCV1, cache=TRUE}
+clean_CLR <- data.frame(abundances_CLR[id_abundances != "29", ])
+names(clean_CLR) <- species
+
 set.seed(33)
 res_plsda <- tune.splsda(clean_CLR, clean_condition, 
                          ncomp = nlevels(clean_condition),
                          multilevel = clean_id,
-                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         test.keepX = 1:25, validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
-                         progressBar = F)
+                         progressBar = FALSE)
 
 plot(res_plsda)
 
@@ -451,41 +453,22 @@ res_splsda <- splsda(clean_CLR, clean_condition,
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (CLR)')
 ```
-```{r}
-head(selectVar(res_splsda, comp = 1)$value)
-```
 
 ```{r interpretation1}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
 ```
-```{r}
-indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
-rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
-```
 
-### **Sans Multilevel**
 
-### with log transformation
-
-```{r distCV2, cache=TRUE}
-
-set.seed(11)
-res_plsda <- plsda(clean_log, clean_condition, ncomp = nlevels(clean_condition))
-res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
-                 progressBar = FALSE, nrepeat = 20)
-plot(res_perf, overlay = 'measure', sd = TRUE)
-plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'PLS-DA (log)')
-```
+### with log transformation (but not paired)
 
 ```{r keepCV2, cache=TRUE}
 set.seed(33)
-res_plsda <- tune.splsda(clean_log, clean_condition, 
-                         ncomp = nlevels(clean_condition),
+res_plsda <- tune.splsda(log(t(abundances)+1), condition, 
+                         ncomp = nlevels(condition), 
                          test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
-                         progressBar = F)
+                         progressBar = FALSE)
 
 plot(res_plsda)
 
@@ -494,33 +477,28 @@ sel_keepX
 ```
 
 ```{r finalPLS-DA2}
-res_splsda <- splsda(clean_log, clean_condition, 
-                     ncomp = nlevels(clean_condition),
-                     keepX = sel_keepX)
+res_splsda <- splsda(log(t(abundances)+1), condition, 
+                     ncomp = nlevels(condition), keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (log)')
 ```
 
 ```{r interpretation2}
-head(selectVar(res_splsda, comp = 1)$value)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 
 ```
-```{r}
-indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
-rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
-```
 
-### with TSS+CLR transformation
+
+### with TSS+CLR transformation (not paired)
 
 ```{r distCV3, cache=TRUE}
 set.seed(11)
-res_plsda <- plsda(clean_CLR, clean_condition, ncomp = nlevels(clean_condition))
-res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+res_plsda <- plsda(abundances_CLR, condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5, 
                  progressBar = FALSE, nrepeat = 20)
 plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
@@ -529,8 +507,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 
 ```{r keepCV3, cache=TRUE}
 set.seed(33)
-res_plsda <- tune.splsda(clean_CLR, clean_condition, 
-                         ncomp = nlevels(clean_condition),
+res_plsda <- tune.splsda(abundances_CLR, condition, ncomp = nlevels(condition),
                          test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
                          progressBar = F)
@@ -542,25 +519,20 @@ sel_keepX
 ```
 
 ```{r finalPLS-DA3}
-res_splsda <- splsda(clean_CLR, clean_condition, 
-                     ncomp = nlevels(clean_condition),
-                     keepX = c(5,25))
+res_splsda <- splsda(abundances_CLR, condition, ncomp = nlevels(condition),
+                     keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (CLR)')
 ```
 
 ```{r interpretation3}
-head(selectVar(res_splsda, comp = 1)$value)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
-```{r}
-indices<-as.numeric(gsub("var_","",selectVar(res_splsda, comp = 1)$name[1:5]))
-rbind(selectVar(res_splsda, comp = 1)$name[1:5],list_bacteria[indices])
-```
+
 
 # Random Forest
 
