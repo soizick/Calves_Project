@@ -553,11 +553,11 @@ id_pathogenes<-df_pathogenes[,1]
 id_pathogenes <- gsub("-","0",id_pathogenes)
 id_pathogenes <- gsub(" ","",id_pathogenes)
 id_pathogenes <- sapply(as.character(id_pathogenes),FUN=function(x){substr(x,nchar(x)-1,nchar(x))})
-id_pathogenes <- id_pathogenes[-grep("29",id_pathogenes)]
-id_pathogenes <- paste0(id_pathogenes,"_",rev(condition[-grep("29",id_abundances)]))
+id_pathogenes <- id_pathogenes[id_pathogenes!="29"]
+id_pathogenes <- paste0(id_pathogenes,"_",rev(condition[id_abundances!="29"]))
 ```
 
-The list of calve names is not in the same order in the `pathogenes` file as in the `abundances` file. We decided to keep the  `abundances` file order:
+The list of calf names is not in the same order in the `pathogenes` file as in the `abundances` file. The `abundances` file order will be kept:
 
 ```{r }
 id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",
@@ -578,27 +578,23 @@ for (virus in colnames(Y)){
 The bacteria names are too long for the plots, they will be renamed:
 
 ```{r }
-X <- as.data.frame(t(clean_data))
+X <- as.data.frame(t(abundances))
+X <- X[id_abundances!="29",]
 X <- as.data.frame(sapply(X,as.integer))
-colnames(X)<-paste0("var_",1:ncol(X)) 
+colnames(X)<- make.names(names(X))
 ```
 
 ### Random Forest on `RSV` virus:
 
 ```{r }
-fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=c(1E-3,1E3),ntree=3000,mtry=10)
+fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=table(Y$Ct.RSV),ntree=3000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
 ```{r }
-# variables qui discriminent le mieux:
 varImpPlot(fit)
-# liste des 10 variables qui discriminent le mieux:
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-# graphique montrant comment reduit l'OOB en fonction du nombre d'arbres generes
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 ```{r}
@@ -608,96 +604,83 @@ cat(fit$predicted)
 ### Random Forest sur `PI.3` :
 
 ```{r }
-fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=c(1E-2,1E3),ntree=1000,mtry=10)
+fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=table(Y$Ct.PI.3),ntree=1000,mtry=10)
 fit$confusion
 ```
 Nothing in class `1`...
 ```{r }
-# Best variables:
 varImpPlot(fit)
-# 10 best variables:
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 
 ### Random Forest on `Coronavirus` :
 
 ```{r }
-fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,ntree=2000,mtry=16)
+fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,classwt=table(Y$Ct.Coronavirus)
+                    , ntree=2000,mtry=16)
 fit$confusion
 ```
 High error
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 ### Random Forest on `P.multocida` virus :
 
 ```{r }
-fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=c(1E2,1E-3),ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=table(Y$Ct.P.multocida),ntree=1000,mtry=16)
 fit$confusion
 ```
 Nothing in class `0`
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
 ### Random Forest on `M.haemolytica` virus:
 
 ```{r }
-fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,ntree=1000,mtry=40)
+fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,classwt=table(Y$Ct.M.haemolytica),ntree=1000,mtry=40)
 fit$confusion
 ```
 
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 
 ### Random Forest on `M.bovis` virus:
 
 ```{r }
-fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=c(1E-3,1E3) , ntree=500,mtry=40)
+fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=table(Y$Ct.M.bovis) , ntree=500,mtry=40)
 fit$confusion
 ```
 
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 
 ### Random Forest on `H.somni` :
 
 ```{r }
-fit <- randomForest(Y$Ct.H.somni ~ ., data = X,ntree=1000,mtry=16)
+fit <- randomForest(Y$Ct.H.somni ~ ., data = X,classwt=table(Y$Ct.H.somni),ntree=1000,mtry=16)
 fit$confusion
 ```
 
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
-plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
+plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
 ## Random Forest on EN condition
@@ -709,15 +692,13 @@ Y_EN<-Y[grep("EN",colnames(abundances)),]
 ```
 
 ```{r }
-fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
 fit$confusion
 ```
 Nothing in class `1`...
 ```{r }
 varImpPlot(fit)
-indices<-as.numeric(gsub("var_","",names((fit$importance[order(fit$importance[, 1], decreasing = TRUE), ])[1:10])))
-list_bacteria[indices]
-
+fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:10]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
@@ -725,7 +706,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB
 cat(fit$predicted)
 ```
 
-### PLS-DA on `Y$Ct.Coronavirus`
+## PLS-DA on `Y$Ct.Coronavirus`
 
 ```{r distCVY, cache=TRUE}
 set.seed(11)
@@ -759,7 +740,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (log)')
 plotVar(res_splsda)
 ```
-Si on limite le nombre de variables, on n'arrive pas à discrimner de manière linéaire la présence ou l'absence du virus Coronavirus.
+Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
 
 
 # Session information
