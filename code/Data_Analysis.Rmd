@@ -260,12 +260,6 @@ ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
   theme(axis.text.x = element_blank())
 ```
 
-```{r}
-ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
-  facet_wrap(~ type, scales = "free_y") + xlab("samples") +
-  theme(axis.text.x = element_blank())
-```
-
 ## Exploratory analysis: PCA
 
 **Log**
@@ -414,7 +408,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 ### with TSS+CLR transformation
 
-```{r distCV1, cache=TRUE}
+```{r distCV1, cache=TRUE,eval=FALSE}
 abundances_CLR <- data.frame(abundances_CLR)
 names(abundances_CLR) <- species
 
@@ -427,7 +421,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (CLR)')
 ```
 
-```{r keepCV1, cache=TRUE}
+```{r keepCV1, cache=TRUE,eval=FALSE}
 clean_CLR <- data.frame(abundances_CLR[id_abundances != "29", ])
 names(clean_CLR) <- species
 
@@ -435,7 +429,7 @@ set.seed(33)
 res_plsda <- tune.splsda(clean_CLR, clean_condition, 
                          ncomp = nlevels(clean_condition),
                          multilevel = clean_id,
-                         test.keepX = 1:25, validation = 'Mfold', 
+                         test.keepX = 1:20, validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
                          progressBar = FALSE)
 
@@ -445,7 +439,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r finalPLS-DA1}
+```{r finalPLS-DA1,eval=FALSE}
 res_splsda <- splsda(clean_CLR, clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
                      keepX = sel_keepX)
@@ -454,7 +448,55 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (CLR)')
 ```
 
-```{r interpretation1}
+```{r interpretation1,eval=FALSE}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
+```
+
+
+### with CSS transformation
+
+```{r distCV5, cache=TRUE}
+abundances_CSS <- data.frame(t(log_CSS))
+names(abundances_CSS) <- species
+
+set.seed(11)
+res_plsda <- plsda(abundances_CSS, condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (CSS)')
+```
+
+```{r keepCV5, cache=TRUE}
+clean_CSS <- data.frame(abundances_CSS[id_abundances != "29", ])
+names(clean_CSS) <- species
+
+set.seed(33)
+res_plsda <- tune.splsda(clean_CSS, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DA5}
+res_splsda <- splsda(clean_CSS, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (CSS)')
+```
+
+```{r interpretation5}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
 ```
@@ -466,7 +508,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
 set.seed(33)
 res_plsda <- tune.splsda(log(t(abundances)+1), condition, 
                          ncomp = nlevels(condition), 
-                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         test.keepX = 1:20, validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
                          progressBar = FALSE)
 
@@ -489,13 +531,12 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
-
 ```
 
 
 ### with TSS+CLR transformation (not paired)
 
-```{r distCV3, cache=TRUE}
+```{r distCV3, cache=TRUE,eval=FALSE}
 set.seed(11)
 res_plsda <- plsda(abundances_CLR, condition, ncomp = nlevels(condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5, 
@@ -505,10 +546,10 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (CLR)')
 ```
 
-```{r keepCV3, cache=TRUE}
+```{r keepCV3, cache=TRUE,eval=FALSE}
 set.seed(33)
 res_plsda <- tune.splsda(abundances_CLR, condition, ncomp = nlevels(condition),
-                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         test.keepX = 1:20, validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
                          progressBar = F)
 
@@ -518,7 +559,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r finalPLS-DA3}
+```{r finalPLS-DA3,eval=FALSE}
 res_splsda <- splsda(abundances_CLR, condition, ncomp = nlevels(condition),
                      keepX = sel_keepX)
 
@@ -526,7 +567,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (CLR)')
 ```
 
-```{r interpretation3}
+```{r interpretation3,eval=FALSE}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
@@ -578,8 +619,8 @@ for (virus in colnames(Y)){
 The bacteria names are too long for the plots, they will be renamed:
 
 ```{r }
-X <- as.data.frame(t(abundances))
-X <- X[id_abundances!="29",]
+X <- clean_log
+#X <- X[id_abundances!="29",]
 X <- as.data.frame(sapply(X,as.integer))
 colnames(X)<- make.names(names(X))
 ```
@@ -591,13 +632,13 @@ fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=table(Y$Ct.RSV),ntree=3000,mt
 fit$confusion
 ```
 Nothing in class `1`...
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-```{r}
+```{r ,eval=FALSE}
 cat(fit$predicted)
 ```
 
@@ -608,7 +649,7 @@ fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=table(Y$Ct.PI.3),ntree=1000,
 fit$confusion
 ```
 Nothing in class `1`...
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
@@ -623,7 +664,7 @@ fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,classwt=table(Y$Ct.Coronavirus
 fit$confusion
 ```
 High error
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
@@ -636,7 +677,7 @@ fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=table(Y$Ct.P.multocid
 fit$confusion
 ```
 Nothing in class `0`
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
@@ -649,7 +690,7 @@ fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,classwt=table(Y$Ct.M.haemol
 fit$confusion
 ```
 
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
@@ -663,7 +704,7 @@ fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=table(Y$Ct.M.bovis) , ntr
 fit$confusion
 ```
 
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
@@ -677,7 +718,7 @@ fit <- randomForest(Y$Ct.H.somni ~ ., data = X,classwt=table(Y$Ct.H.somni),ntree
 fit$confusion
 ```
 
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
@@ -696,32 +737,36 @@ fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.som
 fit$confusion
 ```
 Nothing in class `1`...
-```{r }
+```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:10]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-```{r}
+```{r ,eval=FALSE}
 cat(fit$predicted)
 ```
 
-## PLS-DA on `Y$Ct.Coronavirus`
+# PLS-DA on viruses
 
-```{r distCVY, cache=TRUE}
+## PLS-DA on `Y$Ct.RSV`
+
+```{r distCVY1, cache=TRUE}
 set.seed(11)
-res_plsda <- plsda(X=clean_log,Y=Y$Ct.Coronavirus, ncomp = nlevels(clean_condition))
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.RSV, ncomp = nlevels(clean_condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
                  progressBar = FALSE, nrepeat = 20)
 plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'PLS-DA (log)')
+          legend = TRUE, title = 'PLS-DA (RSV)')
 ```
-```{r keepCVY, cache=TRUE}
+
+```{r keepCVY1, cache=TRUE}
 set.seed(33)
-res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.RSV, 
                          ncomp = nlevels(clean_condition),
-                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
                          folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
                          progressBar = F)
 
@@ -731,16 +776,345 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r finalPLS-DAY}
-res_splsda <- splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
+```{r finalPLS-DAY1}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.RSV, 
                      ncomp = nlevels(clean_condition),
-                     keepX = c(10,10))
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA (log)')
-plotVar(res_splsda)
+          legend = TRUE, title = 'sPLS-DA (RSV)')
 ```
 Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
+
+```{r interpretationY1}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `Y$Ct.PI.3`
+
+```{r distCVY2, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.PI.3, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (PI.3)')
+```
+
+```{r keepCVY2, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.PI.3, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY2}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.PI.3, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (PI.3)')
+```
+
+```{r interpretationY2}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `Y$Ct.Coronavirus`
+
+```{r distCVY3, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.Coronavirus, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (Coronavirus)')
+```
+
+```{r keepCVY3, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY3}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.Coronavirus, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (Coronavirus)')
+#plotVar(res_splsda)
+```
+Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
+
+```{r interpretationY3}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+## PLS-DA on `Y$Ct.P.multocida`
+
+```{r distCVY4, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.P.multocida, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (P.multocida)')
+```
+
+```{r keepCVY4, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.P.multocida, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY4}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.P.multocida, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (P.multocida)')
+```
+
+```{r interpretationY4}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `Y$Ct.M.haemolytica`
+
+```{r distCVY5, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.M.haemolytica, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (M.haemolytica)')
+```
+
+```{r keepCVY5, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.M.haemolytica, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY5}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.M.haemolytica, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (M.haemolytica)')
+```
+
+```{r interpretationY5}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `Y$Ct.M.bovis`
+
+```{r distCVY6, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.M.bovis, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (M.bovis)')
+```
+
+```{r keepCVY6, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.M.bovis, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY6}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.M.bovis, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (M.bovis)')
+```
+
+```{r interpretationY6}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+
+## PLS-DA on `Y$Ct.H.somni`
+
+```{r distCVY7, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log,Y=Y$Ct.H.somni, ncomp = nlevels(clean_condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (H.somni)')
+```
+
+```{r keepCVY7, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.H.somni, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DAY7}
+res_splsda <- splsda(X=clean_log,Y=Y$Ct.H.somni, 
+                     ncomp = nlevels(clean_condition),
+                     multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (H.somni)')
+```
+
+```{r interpretationY7}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+# sPLS with regression mode
+
+```{r}
+pls <- pls(as.matrix(sapply(X,as.numeric)), as.matrix(sapply(Y,as.numeric)), ncomp = 8, mode = "regression")
+spls <- spls(as.matrix(sapply(X,as.numeric)), as.matrix(sapply(Y,as.numeric)), ncomp =8, 
+             keepX= c(15,15), keepY=c(7,7), multilevel=as.matrix(clean_id), mode = "regression")
+```
+
+```{r}
+tune.pls <- perf(pls, validation = "Mfold", folds = 20, multilevel=as.matrix(clean_id), 
+                 progressBar = FALSE, nrepeat = 10)
+tune.spls <- perf(spls, validation = "Mfold", folds = 20, multilevel=as.matrix(clean_id), 
+                  progressBar = FALSE, nrepeat = 10)
+```
+
+```{r}
+tune.pls$Q2.total
+plot(tune.pls$Q2.total)
+```
+We have to select the number of components if its value is above 0.0975. But here, none of the component is above this value...
+
+## Sample Plots
+
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'Y-variate', group = clean_condition, ind.names = clean_id,
+legend = TRUE, title = 'sPLS comp 1 - 2, Y-space')
+```
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'X-variate', group = clean_condition, ind.names = clean_id,
+legend = TRUE, title = 'sPLS comp 1 - 2, X-space')
+```
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', group = clean_condition, ind.names = clean_id,
+legend = TRUE, title = 'sPLS comp 1 - 2, XY-space')
+```
+Individual plots can be displayed on three different subspaces spanned either by the X variable, the Y variable or the mean subspace in which coordinates are averaged from the first two subspaces (XY).
+
+## Variable Plot
+
+```{r}
+par()
+plotVar(spls, comp =1:2, var.names = list(X.label = species, 
+        Y.label = TRUE), cex = c(4, 5))
+```
+
+```{r}
+#cim(spls, comp = 1:2, xlab = "virus", ylab = "genes")
+```
 
 
 # Session information
