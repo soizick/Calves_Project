@@ -729,7 +729,14 @@ plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB"
 Study only on EN condition samples
 ```{r}
 X_EN<-X[grep("EN",colnames(abundances)),]
+X_LBA<-X[grep("LBA",rownames(Y)),]
 Y_EN<-Y[grep("EN",colnames(abundances)),]
+Y_LBA<-Y[grep("LBA",rownames(Y)),]
+
+clean_log_EN <- clean_log[grep("EN",rownames(clean_log)),]
+clean_id_EN <- clean_id[grep("EN",names(clean_id))]
+clean_log_LBA <- clean_log[grep("LBA",rownames(clean_log)),]
+clean_id_LBA <- clean_id[grep("LBA",names(clean_id))]
 ```
 
 ```{r }
@@ -1067,39 +1074,41 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-# sPLS with regression mode
+# sPLS with regression mode - EN condition
 
 ```{r}
-pls <- pls(as.matrix(sapply(X,as.numeric)), as.matrix(sapply(Y,as.numeric)), ncomp = 8, mode = "regression")
-spls <- spls(as.matrix(sapply(X,as.numeric)), as.matrix(sapply(Y,as.numeric)), ncomp =8, 
-             keepX= c(15,15), keepY=c(7,7), multilevel=as.matrix(clean_id), mode = "regression")
+pls <- pls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp = 8, mode = "regression")
+spls <- spls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp =8, 
+             keepX= c(15,15), keepY=c(7,7), mode = "regression")
 ```
 
 ```{r}
-tune.pls <- perf(pls, validation = "Mfold", folds = 20, multilevel=as.matrix(clean_id), 
+tune.pls <- perf(pls, validation = "Mfold", folds = 20, 
                  progressBar = FALSE, nrepeat = 10)
-tune.spls <- perf(spls, validation = "Mfold", folds = 20, multilevel=as.matrix(clean_id), 
+tune.spls <- perf(spls, validation = "Mfold", folds = 20,
                   progressBar = FALSE, nrepeat = 10)
 ```
 
 ```{r}
 tune.pls$Q2.total
 plot(tune.pls$Q2.total)
+abline(h=0.0975)
 ```
-We have to select the number of components if its value is above 0.0975. But here, none of the component is above this value...
 
 ## Sample Plots
 
 ```{r}
-plotIndiv(spls, comp = 1:2, rep.space= 'Y-variate', group = clean_condition, ind.names = clean_id,
+plotIndiv(spls, comp = 1:2, rep.space= 'Y-variate', ind.names = clean_id[grep("EN",names(clean_id))],
 legend = TRUE, title = 'sPLS comp 1 - 2, Y-space')
 ```
+
 ```{r}
-plotIndiv(spls, comp = 1:2, rep.space= 'X-variate', group = clean_condition, ind.names = clean_id,
+plotIndiv(spls, comp = 1:2, rep.space= 'X-variate', ind.names = clean_id[grep("EN",names(clean_id))],
 legend = TRUE, title = 'sPLS comp 1 - 2, X-space')
 ```
+
 ```{r}
-plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', group = clean_condition, ind.names = clean_id,
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', ind.names = clean_id[grep("EN",names(clean_id))],
 legend = TRUE, title = 'sPLS comp 1 - 2, XY-space')
 ```
 Individual plots can be displayed on three different subspaces spanned either by the X variable, the Y variable or the mean subspace in which coordinates are averaged from the first two subspaces (XY).
@@ -1107,13 +1116,256 @@ Individual plots can be displayed on three different subspaces spanned either by
 ## Variable Plot
 
 ```{r}
-par()
 plotVar(spls, comp =1:2, var.names = list(X.label = species, 
         Y.label = TRUE), cex = c(4, 5))
 ```
 
+# sPLS with regression mode - LBA condition
+
+```{r}
+pls <- pls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp = 8, mode = "regression")
+spls <- spls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp =8, 
+             keepX= c(15,15), keepY=c(7,7), mode = "regression")
+```
+
+```{r}
+tune.pls <- perf(pls, validation = "Mfold", folds = 20, 
+                 progressBar = FALSE, nrepeat = 10)
+tune.spls <- perf(spls, validation = "Mfold", folds = 20,
+                  progressBar = FALSE, nrepeat = 10)
+```
+
+```{r}
+tune.pls$Q2.total
+plot(tune.pls$Q2.total)
+abline(h=0.0975)
+```
+
+## Sample Plots
+
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'Y-variate', ind.names = clean_id_LBA,
+legend = TRUE, title = 'sPLS comp 1 - 2, Y-space')
+```
+
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'X-variate', ind.names = clean_id_LBA,
+legend = TRUE, title = 'sPLS comp 1 - 2, X-space')
+```
+
+```{r}
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', ind.names = clean_id_LBA,
+legend = TRUE, title = 'sPLS comp 1 - 2, XY-space')
+```
+Individual plots can be displayed on three different subspaces spanned either by the X variable, the Y variable or the mean subspace in which coordinates are averaged from the first two subspaces (XY).
+
+## Variable Plot
+
+```{r}
+plotVar(spls, comp =1:2, var.names = list(X.label = species, 
+        Y.label = TRUE), cex = c(4, 5))
+```
+
+
 ```{r}
 #cim(spls, comp = 1:2, xlab = "virus", ylab = "genes")
+```
+
+
+# Work on one condition
+
+Regroupment of `Ct.RSV`, "Ct.PI.3", "Ct.Coronavirus"
+
+```{r}
+group_virus<-sapply(Y,as.numeric)
+group_virus<-group_virus-1
+group_virus<-group_virus[,1]+group_virus[,2]+group_virus[,3]
+group_virus[group_virus>0]<-1
+group_virus <- as.factor(group_virus)
+
+group_virus_EN <- group_virus[grep("EN",rownames(Y))]
+group_virus_LBA <- group_virus[grep("LBA",rownames(Y))]
+```
+
+
+
+## PLS-DA on `group_virus` - `EN` condition
+
+```{r cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log_EN,Y=group_virus_EN, ncomp = nlevels(group_virus_EN))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV,PI.3 et Coronavirus) - EN')
+```
+
+```{r cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log_EN,Y=group_virus_EN, 
+                         ncomp = nlevels(group_virus_EN),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r }
+res_splsda <- splsda(X=clean_log_EN,Y=group_virus_EN, 
+                     ncomp = nlevels(group_virus_EN),
+                     keepX = c(5,19))
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV,PI.3 et Coronavirus) - EN')
+```
+
+```{r }
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `group_virus` - `LBA` condition
+
+```{r cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log_LBA,Y=group_virus_LBA, ncomp = nlevels(group_virus_LBA))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV,PI.3 et Coronavirus) - LBA')
+```
+
+```{r cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log_LBA,Y=group_virus_LBA, 
+                         ncomp = nlevels(group_virus_LBA),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r }
+res_splsda <- splsda(X=clean_log_LBA,Y=group_virus_LBA, 
+                     ncomp = nlevels(group_virus_LBA),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV,PI.3 et Coronavirus) - LBA')
+```
+
+```{r }
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+
+
+## PLS-DA on `PI.3` - `EN` condition
+
+```{r cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, ncomp = nlevels(Y_EN$Ct.PI.3))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (PI.3) - EN')
+```
+
+```{r cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, 
+                         ncomp = nlevels(Y_EN$Ct.PI.3),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r }
+res_splsda <- splsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, 
+                     ncomp = nlevels(Y_EN$Ct.PI.3),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (PI.3) - EN')
+```
+
+```{r }
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## PLS-DA on `PI.3` - `LBA` condition
+
+```{r cache=TRUE,eval=FALSE}
+set.seed(11)
+res_plsda <- plsda(X=clean_log_LBA,Y=Y_LBA$Ct.PI.3, ncomp = nlevels(Y_LBA$Ct.PI.3))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (PI.3) - LBA')
+```
+Error because there is unbalanced class of `1`
+```{r}
+table(Y_LBA$Ct.PI.3)
+```
+
+
+```{r cache=TRUE,eval=FALSE}
+set.seed(33)
+res_plsda <- tune.splsda(X=clean_log_LBA,Y=Y_LBA$Ct.PI.3, 
+                         ncomp = nlevels(Y_LBA$Ct.PI.3),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = F)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+Error because there is unbalanced class of `1`
+```{r ,eval=FALSE}
+res_splsda <- splsda(X=clean_log_LBA,Y=Y_LBA$Ct.PI.3, 
+                     ncomp = nlevels(Y_LBA$Ct.PI.3),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (PI.3) - LBA')
+```
+
+```{r ,eval=FALSE}
+head(selectVar(res_splsda, comp = 1)$name)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
 ```
 
 
