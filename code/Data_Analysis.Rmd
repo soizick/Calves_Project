@@ -341,7 +341,7 @@ plotIndiv(pca_CSS,
 
 ## Differences between the two types of samples
 
-A first PLS-DA is computed (with 10-fold CV) to check the efficiency of the 
+A first ***PLS-DA*** is computed (with 10-fold CV) to check the efficiency of the 
 method and which type of distance to use in its computation. 
 
 ### with log transformation
@@ -383,7 +383,6 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-
 Finally sparse PLS-DA is performed and the variables explaining the two types of
 samples are obtained:
 
@@ -404,7 +403,6 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
-
 
 ### with TSS+CLR transformation
 
@@ -577,7 +575,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 # Random Forest
 
-In this section will be performed RandomForest algorithm for classification, with a virus as response vector and all bacteria as explanatory variables in the model.
+In this section will be performed ***Random Forest*** algorithm for classification, with a virus as response vector and all bacteria as explanatory variables in the model.
 
 ```{r , message=FALSE}
 library(randomForest,quietly=T)
@@ -620,12 +618,11 @@ The bacteria names are too long for the plots, they will be renamed:
 
 ```{r }
 X <- clean_log
-#X <- X[id_abundances!="29",]
 X <- as.data.frame(sapply(X,as.integer))
 colnames(X)<- make.names(names(X))
 ```
 
-### Random Forest on `RSV` virus:
+### Random Forest on `RSV`:
 
 ```{r }
 fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=table(Y$Ct.RSV),ntree=3000,mtry=10)
@@ -642,7 +639,7 @@ plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB"
 cat(fit$predicted)
 ```
 
-### Random Forest sur `PI.3` :
+### Random Forest on `PI.3`:
 
 ```{r }
 fit <- randomForest(Y$Ct.PI.3 ~ ., data = X,classwt=table(Y$Ct.PI.3),ntree=1000,mtry=10)
@@ -655,8 +652,7 @@ round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-
-### Random Forest on `Coronavirus` :
+### Random Forest on `Coronavirus`:
 
 ```{r }
 fit <- randomForest(Y$Ct.Coronavirus ~ .,data = X,classwt=table(Y$Ct.Coronavirus)
@@ -670,7 +666,7 @@ fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-### Random Forest on `P.multocida` virus :
+### Random Forest on `P.multocida`:
 
 ```{r }
 fit <- randomForest(Y$Ct.P.multocida ~ ., data = X,classwt=table(Y$Ct.P.multocida),ntree=1000,mtry=16)
@@ -683,7 +679,7 @@ fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "nombre d'arbres", ylab = "erreur OOB")
 ```
 
-### Random Forest on `M.haemolytica` virus:
+### Random Forest on `M.haemolytica`:
 
 ```{r }
 fit <- randomForest(Y$Ct.M.haemolytica ~ ., data = X,classwt=table(Y$Ct.M.haemolytica),ntree=1000,mtry=40)
@@ -696,8 +692,7 @@ fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-
-### Random Forest on `M.bovis` virus:
+### Random Forest on `M.bovis`:
 
 ```{r }
 fit <- randomForest(Y$Ct.M.bovis ~ ., data = X,classwt=table(Y$Ct.M.bovis) , ntree=500,mtry=40)
@@ -710,8 +705,7 @@ fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-
-### Random Forest on `H.somni` :
+### Random Forest on `H.somni`:
 
 ```{r }
 fit <- randomForest(Y$Ct.H.somni ~ ., data = X,classwt=table(Y$Ct.H.somni),ntree=1000,mtry=16)
@@ -724,7 +718,7 @@ fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5]
 plot(fit$err.rate[, 1], type = "l", xlab = "number of trees", ylab = "error OOB")
 ```
 
-## Random Forest on EN condition
+## Random Forest on `EN` condition
 
 Study only on EN condition samples
 ```{r}
@@ -743,7 +737,9 @@ clean_id_LBA <- clean_id[grep("LBA",names(clean_id))]
 fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
 fit$confusion
 ```
+
 Nothing in class `1`...
+
 ```{r ,eval=FALSE}
 varImpPlot(fit)
 fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:10]
@@ -756,7 +752,7 @@ cat(fit$predicted)
 
 # PLS-DA on viruses
 
-## PLS-DA on `Y$Ct.RSV`
+## PLS-DA on `RSV`
 
 ```{r distCVY1, cache=TRUE}
 set.seed(11)
@@ -792,6 +788,7 @@ res_splsda <- splsda(X=clean_log,Y=Y$Ct.RSV,
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (RSV)')
 ```
+
 Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
 
 ```{r interpretationY1}
@@ -802,7 +799,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-## PLS-DA on `Y$Ct.PI.3`
+## PLS-DA on `PI.3`
 
 ```{r distCVY2, cache=TRUE}
 set.seed(11)
@@ -847,7 +844,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-## PLS-DA on `Y$Ct.Coronavirus`
+## PLS-DA on `Coronavirus`
 
 ```{r distCVY3, cache=TRUE}
 set.seed(11)
@@ -882,8 +879,8 @@ res_splsda <- splsda(X=clean_log,Y=Y$Ct.Coronavirus,
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (Coronavirus)')
-#plotVar(res_splsda)
 ```
+
 Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
 
 ```{r interpretationY3}
@@ -893,7 +890,8 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
-## PLS-DA on `Y$Ct.P.multocida`
+
+## PLS-DA on `P.multocida`
 
 ```{r distCVY4, cache=TRUE}
 set.seed(11)
@@ -938,7 +936,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-## PLS-DA on `Y$Ct.M.haemolytica`
+## PLS-DA on `M.haemolytica`
 
 ```{r distCVY5, cache=TRUE}
 set.seed(11)
@@ -983,7 +981,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-## PLS-DA on `Y$Ct.M.bovis`
+## PLS-DA on `M.bovis`
 
 ```{r distCVY6, cache=TRUE}
 set.seed(11)
@@ -1028,8 +1026,7 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-
-## PLS-DA on `Y$Ct.H.somni`
+## PLS-DA on `H.somni`
 
 ```{r distCVY7, cache=TRUE}
 set.seed(11)
@@ -1074,9 +1071,9 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-# sPLS with regression mode - EN condition
+# sPLS with regression mode - `EN` condition
 
-```{r}
+```{r ,cache=TRUE}
 pls <- pls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp = 8, mode = "regression")
 spls <- spls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp =8, 
              keepX= c(15,15), keepY=c(7,7), mode = "regression")
@@ -1122,7 +1119,7 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
 
 # sPLS with regression mode - LBA condition
 
-```{r}
+```{r ,cache = TRUE}
 pls <- pls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp = 8, mode = "regression")
 spls <- spls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp =8, 
              keepX= c(15,15), keepY=c(7,7), mode = "regression")
@@ -1174,7 +1171,7 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
 
 # Work on one condition
 
-Regroupment of `Ct.RSV`, "Ct.PI.3", "Ct.Coronavirus"
+Regroupment of `RSV`, `PI.3`, `Coronavirus`
 
 ```{r}
 group_virus<-sapply(Y,as.numeric)
@@ -1186,8 +1183,6 @@ group_virus <- as.factor(group_virus)
 group_virus_EN <- group_virus[grep("EN",rownames(Y))]
 group_virus_LBA <- group_virus[grep("LBA",rownames(Y))]
 ```
-
-
 
 ## PLS-DA on `group_virus` - `EN` condition
 
@@ -1275,8 +1270,6 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-
-
 ## PLS-DA on `PI.3` - `EN` condition
 
 ```{r cache=TRUE}
@@ -1331,11 +1324,12 @@ plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'PLS-DA (PI.3) - LBA')
 ```
+
 Error because there is unbalanced class of `1`
+
 ```{r}
 table(Y_LBA$Ct.PI.3)
 ```
-
 
 ```{r cache=TRUE,eval=FALSE}
 set.seed(33)
@@ -1350,7 +1344,9 @@ plot(res_plsda)
 sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
+
 Error because there is unbalanced class of `1`
+
 ```{r ,eval=FALSE}
 res_splsda <- splsda(X=clean_log_LBA,Y=Y_LBA$Ct.PI.3, 
                      ncomp = nlevels(Y_LBA$Ct.PI.3),
