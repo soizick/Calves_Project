@@ -1257,6 +1257,9 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+```{r}
+#cim(res_splsda, row.sideColors = color.mixo(group_virus_EN),row.names = clean_id_EN)
+```
 
 ## PLS-DA on `group_virus` - `LBA` condition
 
@@ -1299,6 +1302,9 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
+```
+```{r}
+#cim(res_splsda, row.sideColors = color.mixo(group_virus_LBA),row.names = clean_id_LBA)
 ```
 
 ## PLS-DA on `PI.3` - `EN` condition
@@ -1393,6 +1399,22 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
+```
+
+
+### Random Forest on `group_virus` - `EN` condition:
+
+```{r ,cache=TRUE}
+fit <- randomForest(group_virus_EN ~ ., data = X_EN,classwt=table(group_virus_EN), ntree=5000)
+fit$confusion
+```
+
+
+### Random Forest on `group_virus` - `LBA` condition:
+
+```{r ,cache=TRUE}
+fit <- randomForest(group_virus_LBA ~ ., data = X_LBA,classwt=table(group_virus_LBA), ntree=5000)
+fit$confusion
 ```
 
 
