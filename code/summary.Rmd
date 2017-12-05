@@ -1,0 +1,749 @@
+---
+title: "Projet GMM5 2017"
+author: "Nathalie Villa-Vialaneix"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This files is a summary of the work made by GMM5 students on data coming from
+ENVT study. 
+
+The data are processed using the following packages:
+```{r loadLib, message=FALSE}
+library(mixOmics)
+library(metagenomeSeq)
+library(reshape2)
+```
+
+
+# Data description
+
+Data are given in two files included in the directory ```data``` :
+
+* the first one is the file ```abondances.csv``` that contains microbiote data:
+```{r readAbondances}
+df_abundances <- read.delim("../data/abondances.csv", sep = ",", 
+                            stringsAsFactors = FALSE)
+summary(df_abundances[ ,1:15])
+```
+The first 9 columns contain information about the different bacteria identified 
+within samples. The following columns contain the two technical replicates 
+(identified by "A" and "B") of all the farms involved in the study (the farm is
+identified by a number preceeding the letter "A"/"B"). 
+
+Note that some "blast taxonomy" are duplicated:
+```{r duplicatedTaxonomy}
+unique(names(which(table(df_abundances[ ,1]) > 1)))
+```
+as well as some of the bast id themselves
+```{r duplicatedBlast}
+unique(names(which(table(df_abundances[ ,2]) > 1)))
+```
+
+* the second one is the file ```pathogenes.csv``` that contains information 
+about the presence or absence of several types of virus in the different samples:
+```{r readVirus}
+df_pathogenes <- read.delim("../data/pathogenes.csv", sep = ",")
+dim(df_pathogenes)
+```
+
+# Microbiote preliminary analysis
+
+## Preprocessing and normalization for abundance
+
+First, the two technical replicates are merged (simple sums as the counts have
+already been normalized to identical library sizes)
+```{r countSum}
+abundances <- df_abundances[ ,grep("A_", colnames(df_abundances))] +
+  df_abundances[ ,grep("B_", colnames(df_abundances))]
+dim(abundances)
+```
+which leads to `r ncol(abundances)` samples (columns) in which 
+`r nrow(abundances)` bacteria have been observed (rows).
+
+Condition ("EN" or "LBA") is extracted from column names:
+
+```{r condition}
+condition <- rep("LBA", ncol(abundances))
+condition[grep("EN", colnames(abundances))] <- "EN"
+condition <- factor(condition)
+table(condition)
+```
+
+Also, the farm identifier is extracted from column names:
+```{r farmID}
+id_abundances <- as.character(colnames(abundances))
+id_abundances <- sapply(id_abundances, function(ac) 
+  substr(ac, nchar(ac) - 19, nchar(ac) - 18))
+id_abundances <- gsub("A", "0", id_abundances)
+id_abundances <- gsub("N", "0", id_abundances)
+table(id_abundances)
+```
+All but one farm (idenfier: `r names(which(table(id_abundances) == 1))`) have 
+been sampled twice, once for each condition.
+
+Also, species names are extracted (last not unknown name) by
+```{r speciesNames}
+species <- sapply(df_abundances[ ,1], function(aname) 
+  unlist(strsplit(aname, ";")))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
+```
+
+Duplicated species (based on identical taxonomies) are then merged (counts are
+summed). To do so, first simplified species names are obtained (last unknown 
+species for every row):
+```{r extractSpecies}
+species <- sapply(df_abundances[ ,1], function(aname) 
+  unlist(strsplit(aname, ";")))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
+```
+
+Then, counts corresponding to the same simplified name are summed:
+
+```{r mergedTaxon}
+abundances <- apply(abundances, 2, function(acol) tapply(acol, species, sum))
+```
+
+and the species names are retrieved:
+```{r finalSpecies}
+species <- rownames(abundances)
+```
+
+One species has an unexpected name:
+```{r exploreSpecies}
+head(species)
+```
+
+## Propressing of virus dataset
+
+The following lines extract presence/absence of viruses, coded as factors (0/1)
+and to prepare identifiers of the different samples (containing the condition
+and the identifier of the farm).
+
+```{r prepareVirus}
+pathogenes <- df_pathogenes[ ,-c(1,9)]
+pathogenes <- as.data.frame(ifelse(pathogenes == "p", 1, 0))
+pathogenes <- as.data.frame(apply(t(pathogenes), 1, as.factor))
+id_pathogenes <- df_pathogenes[ ,1]
+id_pathogenes <- gsub("-", "0", id_pathogenes)
+id_pathogenes <- gsub(" ", "", id_pathogenes)
+id_pathogenes <- sapply(as.character(id_pathogenes), function(aname) {
+  substr(aname, nchar(aname)-1, nchar(aname))
+})
+df_pathogenes[ ,9] <- ifelse(df_pathogenes[ ,9] == "ENP", "EN", "LBA")
+id_pathogenes <- paste0(id_pathogenes, "_", df_pathogenes[ ,9])
+```
+
+The list of farm names is not in the same order than in the abundance file. Both
+ordering are matched according to the abundance order (one sample is thus
+excluded from the analysis because the abundance data are not available):
+```{r orderVirus}
+pathogenes <- pathogenes[match(paste0(id_abundances, "_", condition),
+                               id_pathogenes), ] 
+rownames(pathogenes) <- paste0(id_abundances, "_", condition)
+```
+
+
+## Exploratory analysis: distribution of one sample
+
+The effect of different normalization is first explored by analyzing the 
+distributions of the counts in the first sample before and after normalization.
+Distribution before normalization is provided as:
+```{r distBefore}
+df <- data.frame(abundances)
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
+  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution")
+```
+
+and with a log-transformation by
+```{r distLog}
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
+  theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
+  ggtitle("Sample 1 distribution (log scale)")
+```
+
+
+It is commun in metagenomic datasets to perform TSS (*Total Sum Scaling*) before
+further normalization. TSS transformation computes relative abundances:
+\[
+  y_{ij} = \frac{n_{ij}}{\sum_{k=1}^p n_{ik}}
+\]
+for $n_{ij}$ the counts of species $j$ in sample $i$, $p$ the number of species
+and $n$ the number of individuals.
+
+```{r TSS}
+abundances_TSS <- apply(abundances, 1, function(asample)
+  asample / sum(asample))
+df <- as.data.frame(t(abundances_TSS))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
+  theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10()
+```
+
+The next two histograms are based on the normalized counts with:
+
+* CLR (*Centered Log Ratio*) transformation: 
+\[
+  \tilde{y}_{ij} = \log \frac{y_{ij}}{\sqrt[p]{\prod_{k=1}^p y_{ik}}}.
+\]
+
+```{r CLRdist}
+abundances_CLR <- logratio.transfo(abundances_TSS, logratio = "CLR", 
+                                   offset = 1)
+class(abundances_CLR) <- "matrix"
+df <- data.frame(t(abundances_CLR))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)")
+```
+
+* ILR (*Isometric Log Ratio*) transformation 
+\[
+  \tilde{\mathbf{Y}}' = \tilde{\mathbf{Y}} \times \mathbf{V}
+\]
+for $\tilde{\mathbf{Y}}$ the matrix of CLR transformed data and a given matrix
+$\mathbf{V}$ with $p$ rows and $p-1$ columns such that $\mathbf{V} 
+\mathbf{V}^\top = \mathbb{I}_{p-1}$ and $\mathbf{V}^\top \mathbf{V} = 
+\mathbb{I} + a \mathbf{1}$, $a$ being any positive number and $\mathbf{1}$ a 
+vector full of 1.
+
+```{r IRLdist}
+abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
+                                   offset = 1)
+class(abundances_ILR) <- "matrix"
+df <- data.frame(t(abundances_ILR))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)")
+```
+
+
+* CSS transformation, which is an adaptative extension for metagenomic data of
+the quantile normalization used in microarray expression datasets. It is 
+designed so as to account for technical differences between samples. 
+```{r CSSdist}
+abundances_CSS <- newMRexperiment(abundances)
+abundances_CSS <- cumNorm(abundances_CSS)
+df <- data.frame(MRcounts(abundances_CSS))
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) + theme_bw() + 
+  xlab("counts (sample 1)") + scale_y_log10() + scale_x_log10()
+```
+
+The less asymetric distribution seems to be the one obtained with the CLR 
+transformation and the log-transformed CSS.
+
+
+## Exploratory analysis: distribution of all samples
+
+Distributions of all samples according to the type of transformation and the 
+sample is provided below:
+
+```{r allBoxplots}
+df_log <- log10(abundances + 1)
+df_log <- data.frame(df_log)
+rownames(df_log) <- NULL
+names(df_log) <- paste0("Sample", 1:ncol(df_log))
+df_log <- melt(df_log)
+df_CLR <- data.frame(t(abundances_CLR))
+names(df_CLR) <- paste0("Sample", 1:ncol(df_CLR))
+df_CLR <- melt(df_CLR)
+df_ILR <- data.frame(t(abundances_ILR))
+names(df_ILR) <- paste0("Sample", 1:ncol(df_ILR))
+df_ILR <- melt(df_ILR)
+df_CSS <- data.frame(log(MRcounts(abundances_CSS)) + 1)
+names(df_CSS) <- paste0("Sample", 1:ncol(df_CSS))
+df_CSS <- melt(df_CSS)
+all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
+df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
+                 "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
+ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
+  facet_wrap(~ type, scales = "free_y") + xlab("samples") +
+  theme(axis.text.x = element_blank())
+```
+
+
+## Exploratory analysis: PCA
+
+A first exploratory analysis is performed with PCA on (merged) raw counts with
+log transformation:
+```{r pcaRaw}
+pca_raw <- pca(log(t(abundances) + 1), ncomp = ncol(abundances), 
+               logratio = 'none')
+plot(pca_raw)
+```
+
+that shows a good percentage of explained variance for the first axis. 
+
+Projection of the individuals on the first two PCs also shows a good separation
+between the two conditions:
+```{r pcaRawIndiv}
+plotIndiv(pca_raw, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+```
+
+The same analysis is used with TSS normalized counts subsequently transformed by
+CLR or ILR (which is the expected analysis):
+```{r pcaCLR}
+pca_CLR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS),
+               logratio = 'CLR')
+plot(pca_CLR)
+plotIndiv(pca_CLR, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+```
+
+```{r pcaILR}
+pca_ILR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS) - 1,
+               logratio = 'ILR')
+plot(pca_ILR)
+plotIndiv(pca_ILR, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+```
+
+```{r pcaCSS}
+log_CSS <- log(MRcounts(abundances_CSS) + 1)
+pca_CSS <- pca(t(log_CSS), ncomp = ncol(log_CSS))
+plot(pca_CSS)
+plotIndiv(pca_CSS, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group = condition, 
+          col.per.group = color.mixo(1:2),
+          legend = TRUE)
+```
+
+
+# Differences between EN and LBA samples
+
+The first part of the analysis aims at finding signatures that are specific to 
+EN / LBA samples. This is performed using two types of preprocessing and paired
+or unpaired analyses. The used method is sparse PLS-DA.
+
+## With log-transformed counts (paired analysis with 'multilevel')
+
+A first PLS-DA is computed (with 10-fold CV) to check the efficiency of the 
+method and which type of distance to use in its computation. 
+
+```{r distCV, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(log(t(abundances)+1), condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                  progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+```
+
+PLS-DA shows a good separation between the two groups and indicates that the
+Mahalanobis distance provides the lower overall classification error.
+
+Then, sparse PLS-DA is used (with the multilevel approach) to check which number
+of components to select. 
+  
+```{r keepCV, cache=TRUE}
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+names(clean_log) <- species
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', folds = 10, 
+                         dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+Finally sparse PLS-DA is performed and the variables explaining the two types of
+samples are obtained:
+
+```{r finalPLS-DA}
+res_splsda <- splsda(clean_log, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+```
+
+```{r interpretation}
+head(selectVar(res_splsda, comp = 1)$value)
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## With TSS+CLR (paired analysis with 'multilevel')
+
+```{r distCV1, cache=TRUE}
+abundances_CLR <- data.frame(abundances_CLR)
+names(abundances_CLR) <- species
+
+set.seed(11)
+res_plsda <- plsda(abundances_CLR, condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (CLR)')
+```
+
+```{r keepCV1, cache=TRUE}
+clean_CLR <- data.frame(abundances_CLR[id_abundances != "29", ])
+names(clean_CLR) <- species
+
+set.seed(33)
+res_plsda <- tune.splsda(clean_CLR, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:25, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DA1}
+res_splsda <- splsda(clean_CLR, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (CLR)')
+```
+
+```{r interpretation1}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max')
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max')
+```
+
+## With log-transformation (but not paired)
+
+```{r keepCV2, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(log(t(abundances)+1), condition, 
+                         ncomp = nlevels(condition), 
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DA2}
+res_splsda <- splsda(log(t(abundances)+1), condition, 
+                     ncomp = nlevels(condition), keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (log)')
+```
+
+```{r interpretation2}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+
+```
+
+## with TSS+CLR transformation (not paired)
+
+```{r distCV3, cache=TRUE}
+set.seed(11)
+res_plsda <- plsda(abundances_CLR, condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5, 
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (CLR)')
+```
+
+```{r keepCV3, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(abundances_CLR, condition, ncomp = nlevels(condition),
+                         test.keepX = c(seq(5, 200, 5)), validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalPLS-DA3}
+res_splsda <- splsda(abundances_CLR, condition, ncomp = nlevels(condition),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (CLR)')
+```
+
+```{r interpretation3}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+
+# Predicting the presence of viruses
+
+This section tries to make a link between abundance dataset and virus presence.
+It is divided into two parts: the first one performs a multivariate analysis
+relating the presence or absence of any virus to the abundance data. The second
+one aims at predicting a specific group of three viruses from abundance data.
+
+## sPLS to explore both datasets in `EN`
+
+A first explanatory analysis is performed using the abundance data as 
+explanatory variables and the presence of viruses as variables to predict (coded
+as 0/1 in a a regression mode). The model is fitted using the following lines:
+
+```{r tuneExploEN, cache=TRUE}
+sel_samples <- which(condition == "EN")
+set.seed(1205)
+spls <- spls(X = log(t(abundances)+1)[sel_samples, ], 
+             sapply(pathogenes[sel_samples, ], as.numeric) - 1, ncomp = 2, 
+             mode = "regression", keepX = c(10,10), keepY = c(7,7))
+```
+
+Individual plot in the XY-space is then displayed:
+```{r displayExploEN}
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', 
+          ind.names = id_abundances[sel_samples], legend = FALSE, 
+          title = 'sPLS comp 1 - 2, XY-space')
+```
+
+showing three outliers that draw the definition of the axes (06 and 16, axis 1,
+left and 04, axis 2, top).
+
+Finally, projection of the variables onto the first two axes are also displayed:
+
+```{r displayExploEN2}
+plotVar(spls, comp = 1:2, 
+        var.names = list(X.label = species, Y.label = TRUE), cex = c(4, 5))
+```
+
+that shows:
+
+* axis 1 is mainly driven by the absence of Ct.P.multocida (in samples 06 and 16
+probably) that is associated to a small group of bacteria, while its presence is
+associated to a larger group of bacteria;
+
+* axis 2 is mainly driven by the opposition between the presence of Ct.PI.3 and
+CT.RSV that is opposed to the presence of Ct.H.somni. The first two viruses is
+associated to sample 04 (probably) and to the presence of a small group of
+bacteria, while CT.H.somni is associated to the presence of another group of
+bacteria.
+
+
+## sPLS to explore both datasets in `LBA`
+
+The same analysis is performed for samples in `LBA`:
+
+```{r tuneExploLBA, cache=TRUE}
+sel_samples <- which(condition == "LBA")
+set.seed(1205)
+spls <- spls(X = log(t(abundances)+1)[sel_samples, ], 
+             sapply(pathogenes[sel_samples, ], as.numeric) - 1, ncomp = 2, 
+             mode = "regression", keepX = c(10,10), keepY = c(7,7))
+```
+
+Individual plot in the XY-space is then displayed:
+```{r displayExploLBA}
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', 
+          ind.names = id_abundances[sel_samples], legend = FALSE, 
+          title = 'sPLS comp 1 - 2, XY-space')
+```
+
+showing four outliers that draw the definition of the axes (30 and 26, axis 1,
+left and 15 and 25, axis 2, bottom).
+
+Finally, projection of the variables onto the first two axes are also displayed:
+
+```{r displayExploLBA2}
+plotVar(spls, comp = 1:2, 
+        var.names = list(X.label = species, Y.label = TRUE), cex = c(4, 5))
+```
+
+that shows:
+
+* axis 1 is mainly driven by the presence of Ct.M.haemolytica (in samples 30 and
+26 probably) that is associated to a large group of bacteria, while its absence
+is associated to the presence of Ct.P.multocida and Ct.H.somni and a small group
+of two bacteria;
+
+* axis 2 is mainly driven by the presence of Ct.M.bovis (probably present in 
+samples 15 and 25) that is associated to a large group of bacteria.
+
+
+## Definition of a group of virus
+
+In the sequel, the presence/absence of viruses is predicted from abundance data.
+Since most virus presence is very rare (with highly unbalanced datasets), a 
+group of three viruses `RSV`, `PI.3`, `Coronavirus` is defined and used as a
+target for prediction.
+
+The factor corresponding to these three virus presence is thus defined:
+```{r groupVirus}
+group_virus <- apply(sapply(pathogenes, as.numeric) - 1, 2, as.logical)
+group_virus <- (group_virus[ ,1]) | (group_virus[ ,2]) | (group_virus[ ,3])
+group_virus <- as.factor(as.numeric(group_virus))
+table(group_virus)
+```
+that is more balanced than the previous one.
+
+
+## PLS-DA in `EN` condition (log-transformed counts)
+
+Tuning of PLS-DA is first performed to decide the distance to use and to check
+the predictive power of the dataset:
+```{r tuneEN, cache=TRUE}
+sel_samples <- which(condition == "EN")
+set.seed(11)
+res_plsda <- plsda(X = log(t(abundances)+1)[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+The second step is used to select the number of components to keep in the 
+analysis:
+```{r predictEN, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X = log(t(abundances)+1)[sel_samples, ],
+                         Y = group_virus[sel_samples], 
+                         ncomp = nlevels(group_virus),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+plot(res_plsda)
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+Finally, the model is tuned and results are analyzed:
+```{r finalEN}
+res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
+                     Y = group_virus[sel_samples], ncomp = nlevels(group_virus),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r displayEN}
+selectVar(res_splsda, comp = 1)$name
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+
+## PLS-DA in `LBA` condition (log-transformed counts)
+
+The same analysis is performed for the `LBA` condition:
+```{r tuneLBA, cache=TRUE}
+sel_samples <- which(condition == "LBA")
+set.seed(11)
+res_plsda <- plsda(X = log(t(abundances)+1)[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 20)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r predictLBA, cache=TRUE}
+set.seed(33)
+res_plsda <- tune.splsda(X = log(t(abundances)+1)[sel_samples, ],
+                         Y = group_virus[sel_samples], 
+                         ncomp = nlevels(group_virus),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 10, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+plot(res_plsda)
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r finalLBA}
+res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
+                     Y = group_virus[sel_samples], ncomp = nlevels(group_virus),
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r displayLBA}
+selectVar(res_splsda, comp = 1)$name
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+For this condition, the results are less trustable than for the previous 
+condition (because of a separation that has a lesser discrimination quality).
+
+# Session information
+
+```{r sessionInfo}
+sessionInfo()
+```
+
