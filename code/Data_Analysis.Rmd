@@ -30,7 +30,7 @@ Data are given in two files included in the directory ```data``` :
 
 * the first one is the file ```abondances.csv``` that contains microbiote data:
 
-```{r readAbondances}
+```{r readAbondances ,cache=TRUE}
 df_abundances <- read.delim("../data/abondances.csv", sep = ",", 
                             stringsAsFactors = FALSE)
 summary(df_abundances[ ,1:15])
@@ -43,13 +43,13 @@ identified by a number preceeding the letter "A"/"B").
 
 Note that some "blast taxonomy" are duplicated:
 
-```{r duplicatedTaxonomy}
+```{r duplicatedTaxonomy ,cache=TRUE}
 unique(names(which(table(df_abundances[ ,1]) > 1)))
 ```
 
 as well as some of the bast id themselves
 
-```{r duplicatedBlast}
+```{r duplicatedBlast, cache=TRUE}
 unique(names(which(table(df_abundances[ ,2]) > 1)))
 ```
 
@@ -61,7 +61,7 @@ unique(names(which(table(df_abundances[ ,2]) > 1)))
 First, the two technical replicates are merged (simple sums as the counts have
 already been normalized to identical library sizes)
 
-```{r countSum}
+```{r countSum ,cache=TRUE}
 abundances <- df_abundances[ ,grep("A_", colnames(df_abundances))] +
   df_abundances[ ,grep("B_", colnames(df_abundances))]
 dim(abundances)
@@ -72,7 +72,7 @@ which leads to `r ncol(abundances)` samples (columns) in which
 
 Condition ("EN" or "LBA") is extracted from column names:
 
-```{r condition}
+```{r condition ,cache=TRUE}
 condition <- rep("LBA", ncol(abundances))
 condition[grep("EN", colnames(abundances))] <- "EN"
 condition <- factor(condition)
@@ -81,7 +81,7 @@ table(condition)
 
 Also, the farm identifier is extracted from column names:
 
-```{r farmID}
+```{r farmID ,cache=TRUE}
 id_abundances <- as.character(colnames(abundances))
 id_abundances <- sapply(id_abundances, function(ac) 
   substr(ac, nchar(ac) - 19, nchar(ac) - 18))
@@ -98,7 +98,7 @@ been sampled twice, once for each condition.
 Duplicated species (based on identical taxonomies) are then merged (counts are
 summed). To do so, first simplified species names are obtained (last unknown 
 species for every row):
-```{r extractSpecies}
+```{r extractSpecies ,cache=TRUE}
 species <- sapply(df_abundances[ ,1], function(aname) 
   unlist(strsplit(aname, ";")))
 species <- sapply(species, function(avect) {
@@ -113,17 +113,17 @@ species <- unname(species)
 
 Then, counts corresponding to the same simplified name are summed:
 
-```{r mergedTaxon}
+```{r mergedTaxon ,cache=TRUE}
 abundances <- apply(abundances, 2, function(acol) tapply(acol, species, sum))
 ```
 
 and the species names are retrieved:
-```{r finalSpecies}
+```{r finalSpecies ,cache=TRUE}
 species <- rownames(abundances)
 ```
 
 One species has an unexpected name:
-```{r exploreSpecies}
+```{r exploreSpecies ,cache=TRUE}
 head(species)
 ```
 
@@ -137,7 +137,7 @@ The effect of different normalization is first explored by analyzing the
 distributions of the counts in the first sample before and after normalization.
 Distribution before normalization is provided as:
 
-```{r distBefore}
+```{r distBefore ,cache=TRUE}
 df <- data.frame(abundances)
 names(df) <- paste0("sample", 1:ncol(df))
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
@@ -147,7 +147,7 @@ ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
 
 and with a log-transformation by
 
-```{r distLog}
+```{r distLog ,cache=TRUE}
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
   theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
   ggtitle("Sample 1 distribution (log scale)")
@@ -164,7 +164,7 @@ for $n_{ij}$ the counts of species $j$ in sample $i$, $p$ the number of species
 and $n$ the number of individuals.
 
 
-```{r TSS}
+```{r TSS ,cache=TRUE}
 abundances_TSS <- apply(abundances, 1, function(asample)  asample / sum(asample))
 df <- as.data.frame(t(abundances_TSS))
 names(df) <- paste0("sample", 1:ncol(df))
@@ -182,7 +182,7 @@ The next two histograms are based on the normalized counts with:
 \]
 
 
-```{r CLRdist}
+```{r CLRdist ,cache=TRUE}
 abundances_CLR <- logratio.transfo(abundances_TSS, logratio = "CLR", 
                                    offset = 1)
 class(abundances_CLR) <- "matrix"
@@ -204,7 +204,7 @@ $\mathbf{V}$ with $p$ rows and $p-1$ columns such that $\mathbf{V}
 vector full of 1.
 
 
-```{r IRLdist}
+```{r IRLdist,cache=TRUE}
 abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
                                    offset = 1)
 class(abundances_ILR) <- "matrix"
@@ -219,7 +219,7 @@ ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() +
 the quantile normalization used in microarray expression datasets. It is 
 designed so as to account for technical differences between samples. 
 
-```{r CSSdist}
+```{r CSSdist ,cache=TRUE}
 abundances_CSS <- newMRexperiment(abundances)
 abundances_CSS <- cumNorm(abundances_CSS)
 df <- data.frame(MRcounts(abundances_CSS))
@@ -237,7 +237,7 @@ transformation and the log-transformed CSS.
 Distributions of all samples according to the type of transformation and the 
 sample is provided below:
 
-```{r allBoxplots, message=FALSE}
+```{r allBoxplots, message=FALSE ,cache=TRUE}
 df_log <- log10(abundances + 1)
 df_log <- data.frame(df_log)
 rownames(df_log) <- NULL
@@ -267,7 +267,7 @@ ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
 A first exploratory analysis is performed with PCA on (merged) raw counts with
 log transformation:
 
-```{r pcaRaw}
+```{r pcaRaw ,cache=TRUE}
 pca_raw <- pca(log(t(abundances) + 1), ncomp = ncol(abundances), 
                logratio = 'none')
 plot(pca_raw)
@@ -278,7 +278,7 @@ that shows a good percentage of explained variance for the first axis.
 Projection of the individuals on the first two PCs also shows a good separation
 between the two conditions:
 
-```{r pcaRawIndiv}
+```{r pcaRawIndiv ,cache=TRUE}
 plotIndiv(pca_raw, 
           comp = c(1,2),
           pch = 16, 
@@ -391,7 +391,6 @@ sel_keepX
 Finally sparse PLS-DA is performed and the variables explaining the two types of
 samples are obtained:
 
-
 ```{r finalPLS-DA}
 res_splsda <- splsda(clean_log, clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
@@ -407,6 +406,70 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
+```
+**EN vs LBA: Student test on selected Variables**
+
+```{r}
+cat("Selected variables:",paste(selectVar(res_splsda, comp = 1)$name,collapse=', '))
+```
+```{r}
+testEN <- clean_log[clean_condition=="EN",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
+testLBA <- clean_log[clean_condition=="LBA",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
+t.test(testEN,testLBA,paired=TRUE)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[1]` bateria.
+
+```{r}
+boxplot(testEN,testLBA,names=c("EN","LBA"),
+        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
+```
+
+```{r}
+testEN <- clean_log[clean_condition=="EN",grep(selectVar(res_splsda, comp = 1)$name[2],species)]
+testLBA <- clean_log[clean_condition=="LBA",grep(selectVar(res_splsda, comp = 1)$name[2],species)]
+t.test(testEN,testLBA,paired=TRUE)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[2]` bateria.
+
+```{r}
+boxplot(testEN,testLBA,names=c("EN","LBA"),
+        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+```
+
+```{r}
+testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[3]==species)]
+testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[3]==species)]
+t.test(testEN,testLBA,paired=TRUE)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[3]` bateria.
+
+```{r}
+boxplot(testEN,testLBA,names=c("EN","LBA"),
+        main=selectVar(res_splsda, comp = 1)$name[3],col=c("dodgerblue2","darkorange"))
+```
+
+```{r}
+testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[4]==species)]
+testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[4]==species)]
+t.test(testEN,testLBA,paired=TRUE)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[4]` bateria.
+
+```{r}
+boxplot(testEN,testLBA,names=c("EN","LBA"),
+        main=selectVar(res_splsda, comp = 1)$name[4],col=c("dodgerblue2","darkorange"))
+```
+
+```{r}
+testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[5]==species)]
+testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[5]==species)]
+t.test(testEN,testLBA,paired=TRUE)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[5]` bateria.
+
+```{r}
+boxplot(testEN,testLBA,names=c("EN","LBA"),
+        main=selectVar(res_splsda, comp = 1)$name[5],col=c("dodgerblue2","darkorange"))
 ```
 
 ### with TSS+CLR transformation
@@ -588,7 +651,7 @@ library(randomForest,quietly=T)
 
 Data preparation:
 
-```{r }
+```{r ,cache=TRUE}
 df_pathogenes<-read.delim("../data/pathogenes.csv",sep = ",")
 pathogenes<-df_pathogenes[,-c(1,9)]
 pathogenes<-as.data.frame(ifelse(pathogenes=='p',1,0))
@@ -603,7 +666,7 @@ id_pathogenes <- paste0(id_pathogenes,"_",rev(condition[id_abundances!="29"]))
 
 The list of calf names is not in the same order in the `pathogenes` file as in the `abundances` file. The `abundances` file order will be kept:
 
-```{r }
+```{r ,cache=TRUE}
 id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",
                             condition[-grep("29",id_abundances)])
 pathogenes <- pathogenes[df_pathogenes[,1]!="ICSA-29",]
@@ -1166,8 +1229,8 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
 # sPLS with regression mode - LBA condition
 
 ```{r ,cache = TRUE}
-pls <- pls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp = 8, mode = "regression")
-spls <- spls(as.matrix(sapply(X_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp =8, 
+pls <- pls(as.matrix(sapply(clean_log_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp = 8, mode = "regression")
+spls <- spls(as.matrix(sapply(clean_log_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp =8, 
              keepX= c(15,15), keepY=c(7,7), mode = "regression")
 ```
 
@@ -1232,7 +1295,7 @@ group_virus_LBA <- group_virus[grep("LBA",rownames(Y))]
 
 ## PLS-DA on `group_virus` - `EN` condition
 
-```{r cache=TRUE}
+```{r ,cache=TRUE}
 set.seed(11)
 res_plsda <- plsda(X=clean_log_EN,Y=group_virus_EN, ncomp = nlevels(group_virus_EN))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
@@ -1242,7 +1305,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (RSV,PI.3 et Coronavirus) - EN')
 ```
 
-```{r cache=TRUE}
+```{r ,cache=TRUE}
 set.seed(33)
 res_plsda <- tune.splsda(X=clean_log_EN,Y=group_virus_EN, 
                          ncomp = nlevels(group_virus_EN),
@@ -1256,13 +1319,13 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r }
+```{r ,cache=TRUE}
 res_splsda <- splsda(X=clean_log_EN,Y=group_virus_EN, 
                      ncomp = nlevels(group_virus_EN),
-                     keepX = c(5,19))
+                     keepX = sel_keepX)
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA (RSV,PI.3 et Coronavirus) - EN')
+          legend = TRUE, title = 'sPLS-DA (RSV,PI.3 and Coronavirus) - EN')
 ```
 
 ```{r ,cache=TRUE}
@@ -1280,6 +1343,33 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+
+**Presence vs Absence of viruses: Student tests**
+
+```{r}
+test0 <- clean_log[group_virus_EN=="0",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
+test1 <- clean_log[group_virus_EN=="1",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
+t.test(test0,test1)
+```
+We do not reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses does not change the values of the `r selectVar(res_splsda, comp = 1)$name[1]` bateria.
+
+```{r}
+boxplot(test0,test1,names=c("0","1"),
+        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
+```
+
+```{r}
+test0 <- clean_log[group_virus_EN=="0",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
+test1 <- clean_log[group_virus_EN=="1",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
+t.test(test0,test1)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses changes the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria. But the p-value is very close to 0.05...
+
+```{r}
+boxplot(test0,test1,names=c("0","1"),
+        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+```
+
 ```{r}
 #cim(res_splsda, row.sideColors = color.mixo(group_virus_EN),row.names = clean_id_EN)
 ```
@@ -1296,7 +1386,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (RSV,PI.3 et Coronavirus) - LBA')
 ```
 
-```{r cache=TRUE}
+```{r ,cache=TRUE}
 set.seed(33)
 res_plsda <- tune.splsda(X=clean_log_LBA,Y=group_virus_LBA, 
                          ncomp = nlevels(group_virus_LBA),
@@ -1310,7 +1400,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r }
+```{r ,cache=TRUE}
 res_splsda <- splsda(X=clean_log_LBA,Y=group_virus_LBA, 
                      ncomp = nlevels(group_virus_LBA),
                      keepX = sel_keepX)
@@ -1333,13 +1423,41 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+
+**Presence vs Absence of viruses: Student tests**
+
+```{r}
+test0 <- clean_log[group_virus_LBA=="0",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
+test1 <- clean_log[group_virus_LBA=="1",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
+t.test(test0,test1)
+```
+We do not reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses does not change the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria.
+
+```{r}
+boxplot(test0,test1,names=c("0","1"),
+        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
+```
+
+
+```{r}
+test0 <- clean_log[group_virus_LBA=="0",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
+test1 <- clean_log[group_virus_LBA=="1",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
+t.test(test0,test1)
+```
+We reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses changes the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria. But the p-value is close to 0.05...
+
+```{r}
+boxplot(test0,test1,names=c("0","1"),
+        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+```
+
 ```{r}
 #cim(res_splsda, row.sideColors = color.mixo(group_virus_LBA),row.names = clean_id_LBA)
 ```
 
 ## PLS-DA on `PI.3` - `EN` condition
 
-```{r cache=TRUE}
+```{r ,cache=TRUE}
 set.seed(11)
 res_plsda <- plsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, ncomp = nlevels(Y_EN$Ct.PI.3))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
@@ -1349,7 +1467,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (PI.3) - EN')
 ```
 
-```{r cache=TRUE}
+```{r ,cache=TRUE,eval=FALSE}
 set.seed(33)
 res_plsda <- tune.splsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, 
                          ncomp = nlevels(Y_EN$Ct.PI.3),
@@ -1363,7 +1481,9 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r }
+Error : At least one class is not represented in one fold, which may unbalance the error rate.
+
+```{r ,eval=FALSE}
 res_splsda <- splsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, 
                      ncomp = nlevels(Y_EN$Ct.PI.3),
                      keepX = sel_keepX)
@@ -1372,7 +1492,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (PI.3) - EN')
 ```
 
-```{r }
+```{r ,eval=FALSE}
 head(selectVar(res_splsda, comp = 1)$name)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
@@ -1393,10 +1513,6 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
 ```
 
 Error because there is unbalanced class of `1`
-
-```{r}
-table(Y_LBA$Ct.PI.3)
-```
 
 ```{r cache=TRUE,eval=FALSE}
 set.seed(33)
