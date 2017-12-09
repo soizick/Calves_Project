@@ -362,12 +362,17 @@ Mahalanobis distance provides the lower overall classification error.
 
 Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 of components to select. 
+
+**Creation of data set log transformed and without the calf 29:**
   
-```{r keepCV, cache=TRUE}
+```{r cleandata, cache=TRUE}
 clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
 names(clean_log) <- species
 clean_condition <- factor(condition[id_abundances != "29"])
 clean_id <- factor(id_abundances[id_abundances != "29"])
+```
+
+```{r ,cache=TRUE}
 
 set.seed(33)
 res_plsda <- tune.splsda(clean_log, clean_condition, 
@@ -601,6 +606,7 @@ The list of calf names is not in the same order in the `pathogenes` file as in t
 ```{r }
 id_abundances_bis <- paste0(id_abundances[-grep("29",id_abundances)],"_",
                             condition[-grep("29",id_abundances)])
+pathogenes <- pathogenes[df_pathogenes[,1]!="ICSA-29",]
 Y<-pathogenes[match(id_abundances_bis,id_pathogenes),] 
 rownames(Y)<-id_abundances_bis
 ```
@@ -627,10 +633,10 @@ colnames(X)<- make.names(names(X))
 ### Random Forest on `RSV`:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=table(Y$Ct.RSV),ntree=3000,mtry=10)
+fit <- randomForest(Y$Ct.RSV ~ ., data = X,classwt=table(Y$Ct.RSV),ntree=3000)
 fit$confusion
 ```
-Nothing in class `1`...
+
 ```{r ,eval=FALSE}
 varImpPlot(fit)
 round(fit$importance[order(fit$importance[, 1], decreasing = TRUE), ][1:5],3)
@@ -738,46 +744,46 @@ clean_id_LBA <- clean_id[grep("LBA",names(clean_id))]
 ### Random Forest on `RSV` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.RSV ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.RSV ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 
 ### Random Forest on `PI.3` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.PI.3 ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.PI.3 ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 ### Random Forest on `Coronavirus` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.Coronavirus ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.Coronavirus ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 ### Random Forest on `M.haemolytica` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.M.haemolytica~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.M.haemolytica~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 ### Random Forest on `M.bovis` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.M.bovis~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.M.bovis~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 
 ### Random Forest on `P.multocida` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.P.multocida ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.P.multocida ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 
 ### Random Forest on `H.somni` - `EN` condition:
 
 ```{r ,cache=TRUE}
-fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000,mtry=40)
+fit <- randomForest(Y_EN$Ct.H.somni ~ ., data = X_EN,classwt=table(Y_EN$Ct.H.somni), ntree=5000)
 fit$confusion
 ```
 
@@ -819,6 +825,14 @@ res_splsda <- splsda(X=clean_log,Y=Y$Ct.RSV,
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (RSV)')
 ```
+
+```{r ,cache=TRUE}
+test <- predict(res_splsda,clean_log)
+pred <- test$class$mahalanobis.dist[,2]
+get.confusion_matrix(Y$Ct.RSV,predicted=pred)
+table(Y$Ct.RSV)
+```
+
 
 Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
 
@@ -1105,8 +1119,8 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 # sPLS with regression mode - `EN` condition
 
 ```{r ,cache=TRUE}
-pls <- pls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp = 8, mode = "regression")
-spls <- spls(as.matrix(sapply(X_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp =8, 
+pls <- pls(as.matrix(sapply(clean_log_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp = 2, mode = "regression")
+spls <- spls(as.matrix(sapply(clean_log_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp =2, 
              keepX= c(15,15), keepY=c(7,7), mode = "regression")
 ```
 
@@ -1116,6 +1130,7 @@ tune.pls <- perf(pls, validation = "Mfold", folds = 20,
 tune.spls <- perf(spls, validation = "Mfold", folds = 20,
                   progressBar = FALSE, nrepeat = 10)
 ```
+
 
 ```{r}
 tune.pls$Q2.total
@@ -1250,7 +1265,15 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (RSV,PI.3 et Coronavirus) - EN')
 ```
 
-```{r }
+```{r ,cache=TRUE}
+test <- predict(res_splsda,clean_log_EN)
+pred <- test$class$mahalanobis.dist[,2]
+get.confusion_matrix(group_virus_EN,predicted=pred)
+table(group_virus_EN)
+```
+
+
+```{r ,cache=TRUE}
 head(selectVar(res_splsda, comp = 1)$name)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
@@ -1294,6 +1317,13 @@ res_splsda <- splsda(X=clean_log_LBA,Y=group_virus_LBA,
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA (RSV,PI.3 et Coronavirus) - LBA')
+```
+
+```{r ,cache=TRUE}
+test <- predict(res_splsda,clean_log_LBA)
+pred <- test$class$mahalanobis.dist[,2]
+get.confusion_matrix(group_virus_LBA,predicted=pred)
+table(group_virus_LBA)
 ```
 
 ```{r }
