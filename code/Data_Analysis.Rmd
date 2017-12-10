@@ -407,11 +407,13 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+
 **EN vs LBA: Student test on selected Variables**
 
 ```{r}
 cat("Selected variables:",paste(selectVar(res_splsda, comp = 1)$name,collapse=', '))
 ```
+
 ```{r}
 testEN <- clean_log[clean_condition=="EN",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
 testLBA <- clean_log[clean_condition=="LBA",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
@@ -643,13 +645,13 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 # Random Forest
 
-In this section will be performed ***Random Forest*** algorithm for classification, with a virus as response vector and all bacteria as explanatory variables in the model.
+In this section will be performed **Random Forest** algorithm for classification, with a virus as response vector and all bacteria as explanatory variables in the model.
 
 ```{r , message=FALSE}
 library(randomForest,quietly=T)
 ```
 
-Data preparation:
+**Data preparation:**
 
 ```{r ,cache=TRUE}
 df_pathogenes<-read.delim("../data/pathogenes.csv",sep = ",")
@@ -879,7 +881,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r finalPLS-DAY1}
+```{r finalPLS-DAY1, cache=TRUE}
 res_splsda <- splsda(X=clean_log,Y=Y$Ct.RSV, 
                      ncomp = nlevels(clean_condition),
                      multilevel = clean_id,
@@ -893,11 +895,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
 test <- predict(res_splsda,clean_log)
 pred <- test$class$mahalanobis.dist[,2]
 get.confusion_matrix(Y$Ct.RSV,predicted=pred)
-table(Y$Ct.RSV)
 ```
-
-
-Si on limite le nombre de variables, on n'arrive pas a discrimner de maniere lineaire la presence ou l'absence du Coronavirus.
 
 ```{r interpretationY1}
 head(selectVar(res_splsda, comp = 1)$name)
@@ -919,7 +917,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (PI.3)')
 ```
 
-```{r keepCVY2, cache=TRUE}
+```{r keepCVY2, cache=TRUE, eval=FALSE}
 set.seed(33)
 res_plsda <- tune.splsda(X=clean_log,Y=Y$Ct.PI.3, 
                          ncomp = nlevels(clean_condition),
@@ -934,7 +932,13 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-```{r finalPLS-DAY2}
+**ERROR:** 
+Splitting the variation for 1 level factor.
+The SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not convergeThe SGCCA algorithm did not converge
+
+Error in `colnames<-`(`*tmp*`, value = c("0", "1")) : length of 'dimnames' [2] not equal to array extent
+
+```{r finalPLS-DAY2, eval=FALSE}
 res_splsda <- splsda(X=clean_log,Y=Y$Ct.PI.3, 
                      ncomp = nlevels(clean_condition),
                      multilevel = clean_id,
@@ -944,7 +948,7 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'sPLS-DA (PI.3)')
 ```
 
-```{r interpretationY2}
+```{r interpretationY2, eval=FALSE}
 head(selectVar(res_splsda, comp = 1)$name)
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
              size.title = 1)
@@ -1217,6 +1221,7 @@ legend = TRUE, title = 'sPLS comp 1 - 2, X-space')
 plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', ind.names = clean_id[grep("EN",names(clean_id))],
 legend = TRUE, title = 'sPLS comp 1 - 2, XY-space')
 ```
+
 Individual plots can be displayed on three different subspaces spanned either by the X variable, the Y variable or the mean subspace in which coordinates are averaged from the first two subspaces (XY).
 
 ## Variable Plot
@@ -1226,7 +1231,7 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
         Y.label = TRUE), cex = c(4, 5))
 ```
 
-# sPLS with regression mode - LBA condition
+# sPLS with regression mode - `LBA` condition
 
 ```{r ,cache = TRUE}
 pls <- pls(as.matrix(sapply(clean_log_LBA,as.numeric)), as.matrix(sapply(Y_LBA,as.numeric)), ncomp = 8, mode = "regression")
@@ -1234,14 +1239,14 @@ spls <- spls(as.matrix(sapply(clean_log_LBA,as.numeric)), as.matrix(sapply(Y_LBA
              keepX= c(15,15), keepY=c(7,7), mode = "regression")
 ```
 
-```{r}
+```{r ,cache=TRUE}
 tune.pls <- perf(pls, validation = "Mfold", folds = 20, 
                  progressBar = FALSE, nrepeat = 10)
 tune.spls <- perf(spls, validation = "Mfold", folds = 20,
                   progressBar = FALSE, nrepeat = 10)
 ```
 
-```{r}
+```{r ,cache=TRUE}
 tune.pls$Q2.total
 plot(tune.pls$Q2.total)
 abline(h=0.0975)
@@ -1332,7 +1337,6 @@ plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE,
 test <- predict(res_splsda,clean_log_EN)
 pred <- test$class$mahalanobis.dist[,2]
 get.confusion_matrix(group_virus_EN,predicted=pred)
-table(group_virus_EN)
 ```
 
 
@@ -1444,6 +1448,7 @@ test0 <- clean_log[group_virus_LBA=="0",which(selectVar(res_splsda, comp = 1)$na
 test1 <- clean_log[group_virus_LBA=="1",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
 t.test(test0,test1)
 ```
+
 We reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses changes the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria. But the p-value is close to 0.05...
 
 ```{r}
@@ -1481,7 +1486,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-Error : At least one class is not represented in one fold, which may unbalance the error rate.
+**Error:** At least one class is not represented in one fold, which may unbalance the error rate.
 
 ```{r ,eval=FALSE}
 res_splsda <- splsda(X=clean_log_EN,Y=Y_EN$Ct.PI.3, 
@@ -1512,7 +1517,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA (PI.3) - LBA')
 ```
 
-Error because there is unbalanced class of `1`
+**Error:** there is unbalanced class of `1`
 
 ```{r cache=TRUE,eval=FALSE}
 set.seed(33)
@@ -1528,7 +1533,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-Error because there is unbalanced class of `1`
+**Error:** there is unbalanced class of `1`
 
 ```{r ,eval=FALSE}
 res_splsda <- splsda(X=clean_log_LBA,Y=Y_LBA$Ct.PI.3, 
