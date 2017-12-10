@@ -130,11 +130,9 @@ head(species)
 that corresponds to the row number `r grep("&", df_abundances[ ,1])` in the
 original data (checked also directly in the file sent by Elias on 10/09).
 
-
 ## Exploratory analysis: distribution of one sample
 
-The effect of different normalization is first explored by analyzing the 
-distributions of the counts in the first sample before and after normalization.
+The effect of different normalization is first explored by analyzing the distributions of the counts in the first sample before and after normalization.
 Distribution before normalization is provided as:
 
 ```{r distBefore ,cache=TRUE}
@@ -144,7 +142,6 @@ ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
   theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
 ```
 
-
 and with a log-transformation by
 
 ```{r distLog ,cache=TRUE}
@@ -153,8 +150,6 @@ ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
   ggtitle("Sample 1 distribution (log scale)")
 ```
 
-
-
 It is commun in metagenomic datasets to perform TSS (*Total Sum Scaling*) before
 further normalization. TSS transformation computes relative abundances:
 \[
@@ -162,7 +157,6 @@ further normalization. TSS transformation computes relative abundances:
 \]
 for $n_{ij}$ the counts of species $j$ in sample $i$, $p$ the number of species
 and $n$ the number of individuals.
-
 
 ```{r TSS ,cache=TRUE}
 abundances_TSS <- apply(abundances, 1, function(asample)  asample / sum(asample))
@@ -173,14 +167,12 @@ ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
   theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10() + ggtitle("Sample 1 distribution (TSS)")
 ```
 
-
 The next two histograms are based on the normalized counts with:
 
 * CLR (*Centered Log Ratio*) transformation: 
 \[
   \tilde{y}_{ij} = \log \frac{y_{ij}}{\sqrt[p]{\prod_{k=1}^p y_{ik}}}.
 \]
-
 
 ```{r CLRdist ,cache=TRUE}
 abundances_CLR <- logratio.transfo(abundances_TSS, logratio = "CLR", 
@@ -202,7 +194,6 @@ $\mathbf{V}$ with $p$ rows and $p-1$ columns such that $\mathbf{V}
 \mathbf{V}^\top = \mathbb{I}_{p-1}$ and $\mathbf{V}^\top \mathbf{V} = 
 \mathbb{I} + a \mathbf{1}$, $a$ being any positive number and $\mathbf{1}$ a 
 vector full of 1.
-
 
 ```{r IRLdist,cache=TRUE}
 abundances_ILR <- logratio.transfo(abundances_TSS, logratio = "ILR", 
@@ -275,8 +266,7 @@ plot(pca_raw)
 
 that shows a good percentage of explained variance for the first axis. 
 
-Projection of the individuals on the first two PCs also shows a good separation
-between the two conditions:
+Projection of the individuals on the first two PCs also shows a good separation between the two conditions:
 
 ```{r pcaRawIndiv ,cache=TRUE}
 plotIndiv(pca_raw, 
@@ -291,8 +281,7 @@ plotIndiv(pca_raw,
 
 **TSS+CLR**
 
-The same analysis is used with TSS normalized counts subsequently transformed by
-CLR or ILR (which is the expected analysis):
+The same analysis is used with TSS normalized counts subsequently transformed by CLR or ILR (which is the expected analysis):
 
 ```{r pcaCLR, cache=TRUE}
 pca_CLR <- pca(abundances_TSS + 1, ncomp = nrow(abundances_TSS),
@@ -307,6 +296,7 @@ plotIndiv(pca_CLR,
           legend = TRUE,
           title="PCA for CLR-tranformed data")
 ```
+
 **TSS+ILR**
 
 ```{r pcaILR}
@@ -341,8 +331,7 @@ plotIndiv(pca_CSS,
 
 ## Differences between the two types of samples
 
-A first ***PLS-DA*** is computed (with 10-fold CV) to check the efficiency of the 
-method and which type of distance to use in its computation. 
+A first ***PLS-DA*** is computed (with 10-fold CV) to check the efficiency of the method and which type of distance to use in its computation. 
 
 ### with log transformation
 
@@ -356,9 +345,7 @@ plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE,
           legend = TRUE, title = 'PLS-DA Comp 1 - 2')
 ```
 
-
-PLS-DA shows a good separation between the two groups and indicates that the
-Mahalanobis distance provides the lower overall classification error.
+PLS-DA shows a good separation between the two groups and indicates that the Mahalanobis distance provides the lower overall classification error.
 
 Then, sparse PLS-DA is used (with the multilevel approach) to check which number
 of components to select. 
