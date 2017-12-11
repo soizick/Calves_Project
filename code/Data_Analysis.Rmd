@@ -375,8 +375,7 @@ sel_keepX <- res_plsda$choice.keepX[1:2]
 sel_keepX
 ```
 
-Finally sparse PLS-DA is performed and the variables explaining the two types of
-samples are obtained:
+Finally sparse PLS-DA is performed and the variables explaining the two types of samples are obtained:
 
 ```{r finalPLS-DA}
 res_splsda <- splsda(clean_log, clean_condition, 
@@ -394,6 +393,13 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+
+```{r}
+# cim(res_splsda,comp=1,row.names = paste(clean_id,clean_condition,sep='_'),title="Heatmap with splsda values")
+# test<-clean_log[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
+# cim(sapply(test,as.numeric),row.names = paste(clean_id,clean_condition,sep='_'),title="Heatmap with clean_log values")
+```
+
 
 **EN vs LBA: Student test on selected Variables**
 
@@ -1243,17 +1249,17 @@ abline(h=0.0975)
 
 ```{r}
 plotIndiv(spls, comp = 1:2, rep.space= 'Y-variate', ind.names = clean_id_LBA,
-legend = TRUE, title = 'sPLS comp 1 - 2, Y-space')
+legend = F, title = 'sPLS comp 1 - 2, Y-space')
 ```
 
 ```{r}
 plotIndiv(spls, comp = 1:2, rep.space= 'X-variate', ind.names = clean_id_LBA,
-legend = TRUE, title = 'sPLS comp 1 - 2, X-space')
+legend = F, title = 'sPLS comp 1 - 2, X-space')
 ```
 
 ```{r}
 plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', ind.names = clean_id_LBA,
-legend = TRUE, title = 'sPLS comp 1 - 2, XY-space')
+legend = F, title = 'sPLS comp 1 - 2, XY-space')
 ```
 Individual plots can be displayed on three different subspaces spanned either by the X variable, the Y variable or the mean subspace in which coordinates are averaged from the first two subspaces (XY).
 
@@ -1266,7 +1272,10 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
 
 
 ```{r}
-#cim(spls, comp = 1:2, xlab = "virus", ylab = "genes")
+# cim(spls, comp = 1, xlab = "virus", ylab = "genes")
+# selectVar(spls, comp = 1)$X$name
+# test <- cbind(Y,clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)])
+# cim(as.matrix(sapply(clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)],as.numeric)))
 ```
 
 
@@ -1334,6 +1343,13 @@ plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
+
+```{r}
+# cim(res_splsda,comp=1)
+# test<-clean_log_EN[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
+# cim(sapply(test,as.numeric),row.names = clean_id_EN)
+```
+
 
 **Presence vs Absence of viruses: Student tests**
 
