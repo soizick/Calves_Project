@@ -1271,11 +1271,11 @@ plotVar(spls, comp =1:2, var.names = list(X.label = species,
 ```
 
 
-```{r}
-# cim(spls, comp = 1, xlab = "virus", ylab = "genes")
-# selectVar(spls, comp = 1)$X$name
-# test <- cbind(Y,clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)])
-# cim(as.matrix(sapply(clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)],as.numeric)))
+```{r heatmap1, fig.height = 10, fig.width = 10}
+cim(spls, comp = 1, xlab = "virus", ylab = "genes")
+selectVar(spls, comp = 1)$X$name
+test <- cbind(Y,clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)])
+cim(as.matrix(sapply(clean_log[,which(species%in%selectVar(spls, comp = 1)$X$name)],as.numeric)))
 ```
 
 
@@ -1344,10 +1344,10 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-```{r}
-# cim(res_splsda,comp=1)
-# test<-clean_log_EN[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
-# cim(sapply(test,as.numeric),row.names = clean_id_EN)
+```{r heatmap, fig.height = 10, fig.width = 10}
+cim(res_splsda,comp=1)
+test<-clean_log_EN[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
+cim(sapply(test,as.numeric),row.names = clean_id_EN)
 ```
 
 
