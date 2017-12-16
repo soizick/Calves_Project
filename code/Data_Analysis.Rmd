@@ -120,6 +120,7 @@ abundances <- apply(abundances, 2, function(acol) tapply(acol, species, sum))
 and the species names are retrieved:
 ```{r finalSpecies ,cache=TRUE}
 species <- rownames(abundances)
+colnames(abundances) <- paste(condition,id_abundances,sep='_')
 ```
 
 One species has an unexpected name:
