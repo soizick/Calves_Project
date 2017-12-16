@@ -1,0 +1,113 @@
+---
+title: "Data_Analysis_ctrl"
+author: "Soizick & Gicu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loadLib, message=FALSE}
+library(mixOmics)
+library(metagenomeSeq)
+library(reshape2)
+```
+
+```{r readAbondances ,cache=TRUE}
+df_abundances_ctrl <- read.delim("../data/abondances-ctrl.csv", sep = ",", 
+                            stringsAsFactors = FALSE)
+summary(df_abundances_ctrl[ ,1:15])
+abundances_ctrl <- df_abundances_ctrl[ ,grep("LBA_|EN_", colnames(df_abundances_ctrl))]
+dim(abundances_ctrl)
+```
+
+```{r}
+condition <- rep("LBA", ncol(abundances_ctrl))
+condition[grep("EN", colnames(abundances_ctrl))] <- "EN"
+condition <- factor(condition)
+table(condition)
+```
+```{r}
+id_abundances_ctrl=paste(c(1,1,2,2,3,3,4,4,5,5,6,6),condition,sep='_')
+colnames(abundances_ctrl)=id_abundances_ctrl
+```
+
+```{r extractSpecies ,cache=TRUE}
+species <- as.data.frame(sapply(df_abundances_ctrl[ ,1], function(aname) 
+  unlist(strsplit(aname, ";"))))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
+species <- sapply(species,as.character)
+```
+
+```{r mergedTaxon ,cache=TRUE}
+abundances_ctrl <- apply(abundances_ctrl, 2, function(acol) tapply(acol, species, sum))
+```
+
+```{r finalSpecies ,cache=TRUE}
+species <- rownames(abundances)
+```
+
+```{r}
+df <- data.frame(abundances_ctrl)
+names(df) <- paste0("sample", 1:ncol(df))
+ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
+  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
+```
+```{r distLog ,cache=TRUE}
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
+  theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
+  ggtitle("Sample 1 distribution (log scale)")
+```
+```{r}
+library(VennDiagram)
+```
+
+```{r}
+venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn_2set_simple.png",imagetype="png")
+library(png)
+img <- readPNG("Venn_2set_simple.png")
+
+if(exists("rasterImage")){
+      plot(1:5,1:5, type='n',asp = 1)
+      rasterImage(img,0,0,6,6)
+}
+```
+
+```{r}
+data_commun_sick <- abundances[which(rownames(abundances)%in%rownames(abundances_ctrl)),]
+data_commun_ctrl <- abundances_ctrl[which(rownames(abundances_ctrl)%in%rownames(abundances)),]
+data_supp <- cbind.data.frame(data_commun_sick,data_commun_ctrl)
+```
+
+
+```{r}
+library(FactoMineR)
+group <- 
+clean_data_supp <- log(t(data_supp)+1)
+pca_raw <- PCA(clean_data_supp,ind.sup = 46:57)
+plot.PCA(pca_raw,col.hab=as.numeric(condition)+1,col.ind.sup="blue")
+```
+
+
+
+```{r}
+clean_abundances_ctrl <- data.frame(log(t(abundances_ctrl)+1))
+```
+
+
+
+
+
+
+
