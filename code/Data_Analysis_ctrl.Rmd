@@ -55,34 +55,43 @@ abundances_ctrl <- apply(abundances_ctrl, 2, function(acol) tapply(acol, species
 ```
 
 ```{r finalSpecies ,cache=TRUE}
-species <- rownames(abundances)
+species <- rownames(abundances_ctrl)
 ```
 
-```{r}
+```{r ,cache=TRUE}
 df <- data.frame(abundances_ctrl)
 names(df) <- paste0("sample", 1:ncol(df))
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
   theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
 ```
+
 ```{r distLog ,cache=TRUE}
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
   theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
   ggtitle("Sample 1 distribution (log scale)")
 ```
-```{r}
+
+```{r , eval=FALSE}
 library(VennDiagram)
+library(png)
 ```
 
-```{r}
-venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn_2set_simple.png",imagetype="png")
-library(png)
-img <- readPNG("Venn_2set_simple.png")
+```{r , cache=TRUE, eval=FALSE}
+venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn.png",imagetype="png")
+
+img <- readPNG("Venn.png")
 
 if(exists("rasterImage")){
-      plot(1:5,1:5, type='n',asp = 1)
+      plot(1:5,1:5, type='n',asp = 1, xaxt="n", yaxt="n",ylab='',xlab='',main="Venn Diagram")
       rasterImage(img,0,0,6,6)
 }
 ```
+
+```{r venn, cache=TRUE}
+library(gplots)
+venn(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)))
+```
+
 
 ```{r}
 data_commun_sick <- abundances[which(rownames(abundances)%in%rownames(abundances_ctrl)),]
@@ -90,21 +99,62 @@ data_commun_ctrl <- abundances_ctrl[which(rownames(abundances_ctrl)%in%rownames(
 data_supp <- cbind.data.frame(data_commun_sick,data_commun_ctrl)
 ```
 
+# PCA
 
 ```{r}
 library(FactoMineR)
-group <- 
 clean_data_supp <- log(t(data_supp)+1)
 pca_raw <- PCA(clean_data_supp,ind.sup = 46:57)
-plot.PCA(pca_raw,col.hab=as.numeric(condition)+1,col.ind.sup="blue")
+plot.PCA(pca_raw,col.hab=as.numeric(condition)+1,col.ind.sup="blue",cex=0.7)
 ```
-
-
 
 ```{r}
 clean_abundances_ctrl <- data.frame(log(t(abundances_ctrl)+1))
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
+condition <- rep("LBA", ncol(abundances))
+condition[grep("EN", colnames(abundances))] <- "EN"
+condition <- factor(condition)
+table(condition)
 ```
 
+```{r}
+pca_raw <- pca(log(t(data_commun_sick)+1), ncomp = ncol(data_commun_sick), 
+               logratio = 'none')
+plot(pca_raw)
+plotIndiv(pca_raw, 
+          comp = c(1,2),
+          pch = 16, 
+          ind.names = FALSE, 
+          group=condition,
+          col.per.group = color.mixo(1:2),
+          legend = TRUE,
+          title="PCA for log-tranformed data")
+```
+
+
+```{r}
+log <-log(t(data_commun_ctrl) + 1) 
+X <- pca_raw$rotation[,1:2]
+test <- log%*%X
+```
+
+
+# PLS-DA
+
+```{r}
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', folds = 10, 
+                         dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+
+plot(res_plsda)
+```
 
 
 
