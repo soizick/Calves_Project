@@ -1,6 +1,6 @@
 ---
 title: "Data_Analysis_ctrl"
-author: "Soizick & Gicu"
+author: "Soizick and Gicu"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
@@ -17,7 +17,48 @@ library(metagenomeSeq)
 library(reshape2)
 ```
 
-```{r readAbondances ,cache=TRUE}
+# Data with sick samples preparation
+
+```{r ,cache=TRUE}
+df_abundances <- read.delim("../data/abondances.csv", sep = ",", 
+                            stringsAsFactors = FALSE)
+```
+
+```{r ,cache=TRUE}
+abundances <- df_abundances[ ,grep("A_", colnames(df_abundances))] +
+  df_abundances[ ,grep("B_", colnames(df_abundances))]
+dim(abundances)
+condition <- rep("LBA", ncol(abundances))
+condition[grep("EN", colnames(abundances))] <- "EN"
+condition <- factor(condition)
+table(condition)
+
+id_abundances <- as.character(colnames(abundances))
+id_abundances <- sapply(id_abundances, function(ac) 
+  substr(ac, nchar(ac) - 19, nchar(ac) - 18))
+id_abundances <- gsub("A", "0", id_abundances)
+id_abundances <- gsub("N", "0", id_abundances)
+table(id_abundances)
+
+species <- sapply(df_abundances[ ,1], function(aname) 
+  unlist(strsplit(aname, ";")))
+species <- sapply(species, function(avect) {
+  find_unknown <- grep("unknown", avect)
+  if (length(find_unknown) > 0) {
+    return(avect[-find_unknown])
+  } else return(avect)
+})
+species <- unlist(sapply(species, function(avect) avect[length(avect)]))
+species <- unname(species)
+
+abundances <- apply(abundances, 2, function(acol) tapply(acol, species, sum))
+species <- rownames(abundances)
+colnames(abundances) <- paste(condition,id_abundances,sep='_')
+```
+
+# Data with control samples preparation
+
+```{r readAbondances_ctrl ,cache=TRUE}
 df_abundances_ctrl <- read.delim("../data/abondances-ctrl.csv", sep = ",", 
                             stringsAsFactors = FALSE)
 summary(df_abundances_ctrl[ ,1:15])
@@ -26,13 +67,13 @@ dim(abundances_ctrl)
 ```
 
 ```{r}
-condition <- rep("LBA", ncol(abundances_ctrl))
-condition[grep("EN", colnames(abundances_ctrl))] <- "EN"
-condition <- factor(condition)
-table(condition)
+condition_ctrl <- rep("LBA", ncol(abundances_ctrl))
+condition_ctrl[grep("EN", colnames(abundances_ctrl))] <- "EN"
+condition_ctrl <- factor(condition_ctrl)
+table(condition_ctrl)
 ```
 ```{r}
-id_abundances_ctrl=paste(c(1,1,2,2,3,3,4,4,5,5,6,6),condition,sep='_')
+id_abundances_ctrl=paste(c(1,1,2,2,3,3,4,4,5,5,6,6),condition_ctrl,sep='_')
 colnames(abundances_ctrl)=id_abundances_ctrl
 ```
 
@@ -52,9 +93,6 @@ species <- sapply(species,as.character)
 
 ```{r mergedTaxon ,cache=TRUE}
 abundances_ctrl <- apply(abundances_ctrl, 2, function(acol) tapply(acol, species, sum))
-```
-
-```{r finalSpecies ,cache=TRUE}
 species <- rownames(abundances_ctrl)
 ```
 
@@ -70,6 +108,8 @@ ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
   theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
   ggtitle("Sample 1 distribution (log scale)")
 ```
+
+# Venn Diagram
 
 ```{r , eval=FALSE}
 library(VennDiagram)
@@ -92,6 +132,7 @@ library(gplots)
 venn(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)))
 ```
 
+# New data sets with commun bacteria
 
 ```{r}
 data_commun_sick <- abundances[which(rownames(abundances)%in%rownames(abundances_ctrl)),]
@@ -102,28 +143,23 @@ data_supp <- cbind.data.frame(data_commun_sick,data_commun_ctrl)
 # PCA
 
 ```{r}
-library(FactoMineR)
-clean_data_supp <- log(t(data_supp)+1)
-pca_raw <- PCA(clean_data_supp,ind.sup = 46:57)
-plot.PCA(pca_raw,col.hab=as.numeric(condition)+1,col.ind.sup="blue",cex=0.7)
-```
+log_commun_sick<-log(t(data_commun_sick)+1)
+log_commun_ctrl<-log(t(data_commun_ctrl)+1)
 
-```{r}
-clean_abundances_ctrl <- data.frame(log(t(abundances_ctrl)+1))
-clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
 clean_condition <- factor(condition[id_abundances != "29"])
 clean_id <- factor(id_abundances[id_abundances != "29"])
-
-condition <- rep("LBA", ncol(abundances))
-condition[grep("EN", colnames(abundances))] <- "EN"
-condition <- factor(condition)
-table(condition)
 ```
 
+
 ```{r}
-pca_raw <- pca(log(t(data_commun_sick)+1), ncomp = ncol(data_commun_sick), 
+pca_raw <- pca(log_commun_sick, ncomp = ncol(data_commun_sick), 
                logratio = 'none')
-plot(pca_raw)
+```
+
+**Adding supplementary individuals**
+
+```{r}
+suppIndiv <- log_commun_ctrl%*%pca_raw$rotation[,1:2]
 plotIndiv(pca_raw, 
           comp = c(1,2),
           pch = 16, 
@@ -131,29 +167,35 @@ plotIndiv(pca_raw,
           group=condition,
           col.per.group = color.mixo(1:2),
           legend = TRUE,
+          style="graphics",
           title="PCA for log-tranformed data")
+points(suppIndiv[,1],suppIndiv[,2],col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1,cex=1.5)
 ```
-
-
-```{r}
-log <-log(t(data_commun_ctrl) + 1) 
-X <- pca_raw$rotation[,1:2]
-test <- log%*%X
-```
-
 
 # PLS-DA
 
-```{r}
+```{r plsda,cache=TRUE}
 set.seed(33)
-res_plsda <- tune.splsda(clean_log, clean_condition, 
+res_plsda <- tune.splsda(log_commun_sick[id_abundances != "29",], clean_condition, 
                          ncomp = nlevels(clean_condition),
                          multilevel = clean_id,
                          test.keepX = 1:20, validation = 'Mfold', folds = 10, 
                          dist = 'mahalanobis.dist', nrepeat = 10,
-                         progressBar = FALSE)
+                         progressBar = FALSE,scale=FALSE)   #ajout de scale=FALSE sinon résultats incohérents
 
 plot(res_plsda)
+
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+
+res_splsda <- splsda(log_commun_sick[id_abundances != "29",], clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2',style="graphics")
+suppIndiv <- log_commun_ctrl%*%res_splsda$loadings$X
+points(suppIndiv[,1],suppIndiv[,2],col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=16,cex=1.5)
 ```
 
 
