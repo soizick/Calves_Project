@@ -12,7 +12,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 This files is a summary of the work made by GMM5 students on data coming from
 ENVT study. 
 
