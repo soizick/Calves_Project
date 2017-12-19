@@ -190,15 +190,27 @@ sel_keepX
 
 res_splsda <- splsda(log_commun_sick[id_abundances != "29",], clean_condition, 
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
-                     keepX = sel_keepX)
-
+                     keepX = sel_keepX, scale=FALSE)
+plot('n',xlim=c(-4,9),ylim=c(-5,5))
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
           legend = TRUE, title = 'sPLS-DA Comp 1 - 2',style="graphics")
 suppIndiv <- log_commun_ctrl%*%res_splsda$loadings$X
+chose = (log_commun_sick[id_abundances!="29", ]) %*% res_splsda$loadings$X
 points(suppIndiv[,1],suppIndiv[,2],col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=16,cex=1.5)
 ```
 
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',size.title = 1)
+```
 
+
+```{r}
+truc = cbind(data_commun_ctrl, data_commun_sick)
+truc = data.frame(t(truc), cond = paste0(c(condition_ctrl,condition), c(rep("C", 12), rep("S", 45))))
+boxplot(log(truc$Streptococcus.pluranimalium + 1) ~ truc$cond)
+boxplot(log(truc$Pseudomonas.sp. + 1) ~ truc$cond)
+boxplot(log(truc$Mannheimia.sp. + 1) ~ truc$cond)
+```
 
 
 
