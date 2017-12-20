@@ -199,12 +199,12 @@ chose = (log_commun_sick[id_abundances!="29", ]) %*% res_splsda$loadings$X
 points(suppIndiv[,1],suppIndiv[,2],col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=16,cex=1.5)
 ```
 
-```{r}
+```{r ,cache=TRUE}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',size.title = 1)
 ```
 
 
-```{r}
+```{r ,cache=TRUE}
 truc = cbind(data_commun_ctrl, data_commun_sick)
 truc = data.frame(t(truc), cond = paste0(c(condition_ctrl,condition), c(rep("C", 12), rep("S", 45))))
 boxplot(log(truc$Streptococcus.pluranimalium + 1) ~ truc$cond)
