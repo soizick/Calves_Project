@@ -104,7 +104,7 @@ summed). To do so, first simplified species names are obtained (last unknown
 species for every row):
 ```{r extractSpecies ,cache=TRUE}
 species <- sapply(df_abundances[ ,1], function(aname) 
-  unlist(strsplit(aname, ";")))
+  strsplit(aname, ";"))
 species <- sapply(species, function(avect) {
   find_unknown <- grep("unknown", avect)
   if (length(find_unknown) > 0) {
