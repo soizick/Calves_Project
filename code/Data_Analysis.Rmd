@@ -94,6 +94,11 @@ been sampled twice, once for each condition.
 
 ## Merging duplicates
 
+One species name is not correct. Let us change it with the right name:
+```{r}
+df_abundances[grep("&",df_abundances[ ,1]),1] <- "Bacteria;Proteobacteria;Gammaproteobacteria;Pasteurellales;Pasteurellaceae;Mannheimia;Mannheimia haemolytica"
+```
+
 Duplicated species (based on identical taxonomies) are then merged (counts are
 summed). To do so, first simplified species names are obtained (last unknown 
 species for every row):
