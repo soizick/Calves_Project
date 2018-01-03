@@ -144,14 +144,14 @@ Distribution before normalization is provided as:
 df <- data.frame(abundances)
 names(df) <- paste0("sample", 1:ncol(df))
 ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
-  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
+  theme_bw(base_size = 18) + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
 ```
 
 and with a log-transformation by
 
 ```{r distLog ,cache=TRUE}
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
-  theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
+  theme_bw(base_size = 18) + xlab("counts (sample 1)") + scale_x_log10() +
   ggtitle("Sample 1 distribution (log scale)")
 ```
 
@@ -169,7 +169,7 @@ df <- as.data.frame(t(abundances_TSS))
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
-  theme_bw() + xlab("relative abundance (sample 1)") + scale_x_log10() + ggtitle("Sample 1 distribution (TSS)")
+  theme_bw(base_size = 18) + xlab("relative abundance (sample 1)") + scale_x_log10() + ggtitle("Sample 1 distribution (TSS)")
 ```
 
 The next two histograms are based on the normalized counts with:
@@ -186,7 +186,7 @@ class(abundances_CLR) <- "matrix"
 df <- data.frame(t(abundances_CLR))   
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
-ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw(base_size = 18) + 
   xlab("counts (sample 1)") + ggtitle("Sample 1 distribution (CLR)")
 ```
 
@@ -207,7 +207,7 @@ class(abundances_ILR) <- "matrix"
 df <- data.frame(t(abundances_ILR)) 
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
-ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw() + 
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw(base_size = 18) + 
   xlab("counts (sample 1)") + ggtitle("Sample 1 distribution (ILR)")
 ```
 
@@ -251,7 +251,7 @@ df_CSS <- melt(df_CSS)
 all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
 df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
                  "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
-ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw() +
+ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw(base_size = 18) +
   facet_wrap(~ type, scales = "free_y") + xlab("samples") +
   theme(axis.text.x = element_blank())
 ```
@@ -281,7 +281,11 @@ plotIndiv(pca_raw,
           group = condition, 
           col.per.group = color.mixo(1:2),
           legend = TRUE,
-          title="PCA for log-tranformed data")
+          title="PCA for log-tranformed data",
+          size.title = rel(2),
+          size.ylabel = rel(1.5),
+          size.xlabel = rel(1.5),
+          size.legend.title = rel(1.5))
 ```
 
 **TSS+CLR**
