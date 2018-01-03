@@ -117,7 +117,7 @@ library(png)
 ```
 
 ```{r , cache=TRUE, eval=FALSE}
-venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn.png",imagetype="png")
+venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn.png",imagetype="png",lwt=2,cex=3,cat.cex=2)
 
 img <- readPNG("Venn.png")
 
