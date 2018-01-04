@@ -5,6 +5,8 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     toc: yes
+  pdf_document:
+    toc: yes
 ---
 
 
@@ -403,78 +405,39 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-```{r}
+```{r ,eval=FALSE}
 # cim(res_splsda,comp=1,row.names = paste(clean_id,clean_condition,sep='_'),title="Heatmap with splsda values")
 # test<-clean_log[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
 # cim(sapply(test,as.numeric),row.names = paste(clean_id,clean_condition,sep='_'),title="Heatmap with clean_log values")
 ```
 
-
 **EN vs LBA: Student test on selected Variables**
 
-```{r}
-cat("Selected variables:",paste(selectVar(res_splsda, comp = 1)$name,collapse=', '))
+```{r ,cache=TRUE}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = abundances[selected[ind], ], 
+                   condition = condition)
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
 ```
 
 ```{r}
-testEN <- clean_log[clean_condition=="EN",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
-testLBA <- clean_log[clean_condition=="LBA",grep(selectVar(res_splsda, comp = 1)$name[1],species)]
-t.test(testEN,testLBA,paired=TRUE)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[1]` bateria.
-
-```{r}
-boxplot(testEN,testLBA,names=c("EN","LBA"),
-        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
-```
-
-```{r}
-testEN <- clean_log[clean_condition=="EN",grep(selectVar(res_splsda, comp = 1)$name[2],species)]
-testLBA <- clean_log[clean_condition=="LBA",grep(selectVar(res_splsda, comp = 1)$name[2],species)]
-t.test(testEN,testLBA,paired=TRUE)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[2]` bateria.
-
-```{r}
-boxplot(testEN,testLBA,names=c("EN","LBA"),
-        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  var_en <- clean_log[clean_condition == "EN",selected[ind]]
+  var_lba <- clean_log[clean_condition == "LBA",selected[ind]]
+  pval <- t.test(var_en, var_lba, paired = TRUE)$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
 ```
 
-```{r}
-testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[3]==species)]
-testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[3]==species)]
-t.test(testEN,testLBA,paired=TRUE)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[3]` bateria.
-
-```{r}
-boxplot(testEN,testLBA,names=c("EN","LBA"),
-        main=selectVar(res_splsda, comp = 1)$name[3],col=c("dodgerblue2","darkorange"))
-```
-
-```{r}
-testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[4]==species)]
-testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[4]==species)]
-t.test(testEN,testLBA,paired=TRUE)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[4]` bateria.
-
-```{r}
-boxplot(testEN,testLBA,names=c("EN","LBA"),
-        main=selectVar(res_splsda, comp = 1)$name[4],col=c("dodgerblue2","darkorange"))
-```
-
-```{r}
-testEN <- clean_log[clean_condition=="EN",which(selectVar(res_splsda, comp = 1)$name[5]==species)]
-testLBA <- clean_log[clean_condition=="LBA",which(selectVar(res_splsda, comp = 1)$name[5]==species)]
-t.test(testEN,testLBA,paired=TRUE)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that there is a difference between the two types of samples (EN and LBA) for the `r selectVar(res_splsda, comp = 1)$name[5]` bateria.
-
-```{r}
-boxplot(testEN,testLBA,names=c("EN","LBA"),
-        main=selectVar(res_splsda, comp = 1)$name[5],col=c("dodgerblue2","darkorange"))
-```
+All tests are found positive: those bacteria are found differentially present in `EN/LBA` samples.
 
 ### with TSS+CLR transformation
 
@@ -1353,37 +1316,40 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-```{r heatmap, fig.height = 10, fig.width = 10}
+```{r heatmap, fig.height = 10, fig.width = 10 ,eval=FALSE}
 cim(res_splsda,comp=1)
 test<-clean_log_EN[,which(species%in%selectVar(res_splsda, comp = 1)$name)]
 cim(sapply(test,as.numeric),row.names = clean_id_EN)
 ```
 
-
 **Presence vs Absence of viruses: Student tests**
 
-```{r}
-test0 <- clean_log[group_virus_EN=="0",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
-test1 <- clean_log[group_virus_EN=="1",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
-t.test(test0,test1)
+```{r ,cache=TRUE}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = clean_log_EN[,selected[ind]], 
+                   condition = group_virus_EN)
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = group_virus_EN)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
 ```
-We do not reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses does not change the values of the `r selectVar(res_splsda, comp = 1)$name[1]` bateria.
+
+$H_0$: true difference in means is equal to 0.
+
+$H_1$: true difference in means is not equal to 0.
 
 ```{r}
-boxplot(test0,test1,names=c("0","1"),
-        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
-```
-
-```{r}
-test0 <- clean_log[group_virus_EN=="0",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
-test1 <- clean_log[group_virus_EN=="1",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
-t.test(test0,test1)
-```
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses changes the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria. But the p-value is very close to 0.05...
-
-```{r}
-boxplot(test0,test1,names=c("0","1"),
-        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  var_0 <- clean_log_EN[group_virus_EN == 0,selected[ind]]
+  var_1 <- clean_log_EN[group_virus_EN == 1,selected[ind]]
+  pval <- t.test(var_0, var_1)$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
 ```
 
 ```{r}
@@ -1442,30 +1408,32 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 **Presence vs Absence of viruses: Student tests**
 
-```{r}
-test0 <- clean_log[group_virus_LBA=="0",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
-test1 <- clean_log[group_virus_LBA=="1",which(selectVar(res_splsda, comp = 1)$name[1]==species)]
-t.test(test0,test1)
-```
-We do not reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses does not change the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria.
-
-```{r}
-boxplot(test0,test1,names=c("0","1"),
-        main=selectVar(res_splsda, comp = 1)$name[1],col=c("dodgerblue2","darkorange"))
-```
-
-
-```{r}
-test0 <- clean_log[group_virus_LBA=="0",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
-test1 <- clean_log[group_virus_LBA=="1",which(selectVar(res_splsda, comp = 1)$name[2]==species)]
-t.test(test0,test1)
+```{r ,cache=TRUE}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = clean_log_LBA[,selected[ind]], 
+                   condition = group_virus_LBA)
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = group_virus_LBA)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
 ```
 
-We reject $H_0$ (the difference in means is equal to 0) hence we can say that the presence or not of these three viruses changes the values of the `r selectVar(res_splsda, comp = 1)$name[2]` bateria. But the p-value is close to 0.05...
+$H_0$: true difference in means is equal to 0.
+
+$H_1$: true difference in means is not equal to 0.
 
 ```{r}
-boxplot(test0,test1,names=c("0","1"),
-        main=selectVar(res_splsda, comp = 1)$name[2],col=c("dodgerblue2","darkorange"))
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  var_0 <- clean_log_LBA[group_virus_LBA == 0,selected[ind]]
+  var_1 <- clean_log_LBA[group_virus_LBA == 1,selected[ind]]
+  pval <- t.test(var_0, var_1)$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
 ```
 
 ```{r}
@@ -1564,14 +1532,12 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1)
 ```
 
-
 ### Random Forest on `group_virus` - `EN` condition:
 
 ```{r ,cache=TRUE}
 fit <- randomForest(group_virus_EN ~ ., data = X_EN,classwt=table(group_virus_EN), ntree=5000)
 fit$confusion
 ```
-
 
 ### Random Forest on `group_virus` - `LBA` condition:
 
