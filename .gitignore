@@ -1,12 +1,8 @@
-/data/pathogenes.csv
-/data/abondances.csv
+/data/*
 /code/.Rhistory
 /code/Data_Analysis_cache/
 /code/Data_Analysis_files/
 /code/Data_Analysis_ctrl_cache/
 /code/Data_Analysis_ctrl_files/
-/data/abondances-ctrl.csv
-/code/pca.png
-/code/VennDiag.PNG
 *~
 
