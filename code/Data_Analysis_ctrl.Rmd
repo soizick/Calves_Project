@@ -25,9 +25,13 @@ df_abundances <- read.delim("../data/abondances.csv", sep = ",",
 ```
 
 ```{r ,cache=TRUE}
+df_abundances[df_abundances[ ,1] == "&",1] <- "Bacteria;Proteobacteria;Gammaproteobacteria;Pasteurellales;Pasteurellaceae;Mannheimia;Mannheimia haemolytica"
 abundances <- df_abundances[ ,grep("A_", colnames(df_abundances))] +
   df_abundances[ ,grep("B_", colnames(df_abundances))]
 dim(abundances)
+```
+
+```{r ,cache=TRUE}
 condition <- rep("LBA", ncol(abundances))
 condition[grep("EN", colnames(abundances))] <- "EN"
 condition <- factor(condition)
@@ -39,9 +43,11 @@ id_abundances <- sapply(id_abundances, function(ac)
 id_abundances <- gsub("A", "0", id_abundances)
 id_abundances <- gsub("N", "0", id_abundances)
 table(id_abundances)
+```
 
+```{r,cache=TRUE}
 species <- sapply(df_abundances[ ,1], function(aname) 
-  unlist(strsplit(aname, ";")))
+  unlist(strsplit(aname, ";")), simplify = FALSE)
 species <- sapply(species, function(avect) {
   find_unknown <- grep("unknown", avect)
   if (length(find_unknown) > 0) {
@@ -56,13 +62,41 @@ species <- rownames(abundances)
 colnames(abundances) <- paste(condition,id_abundances,sep='_')
 ```
 
-# Data with control samples preparation
+# Pathogene data preparation
+
+```{r}
+df_pathogenes <- read.delim("../data/pathogenes.csv", sep = ",")
+dim(df_pathogenes)
+pathogenes <- df_pathogenes[ ,-c(1,9)]
+pathogenes <- as.data.frame(ifelse(pathogenes == "p", 1, 0))
+pathogenes <- as.data.frame(apply(t(pathogenes), 1, as.factor))
+id_pathogenes <- df_pathogenes[ ,1]
+id_pathogenes <- gsub("-", "0", id_pathogenes)
+id_pathogenes <- gsub(" ", "", id_pathogenes)
+id_pathogenes <- sapply(as.character(id_pathogenes), function(aname) {
+  substr(aname, nchar(aname)-1, nchar(aname))
+})
+df_pathogenes[ ,9] <- ifelse(df_pathogenes[ ,9] == "ENP", "EN", "LBA")
+id_pathogenes <- paste0(id_pathogenes, "_", df_pathogenes[ ,9])
+```
+
+The list of farm names is not in the same order than in the abundance file. Both ordering are matched according to the abundance order (one sample is thus excluded from the analysis because the abundance data are not available):
+
+```{r}
+pathogenes <- pathogenes[match(paste0(id_abundances, "_", condition),
+                               id_pathogenes), ] 
+rownames(pathogenes) <- paste0(id_abundances, "_", condition)
+```
+
+
+# Preprocessing of control samples
 
 ```{r readAbondances_ctrl ,cache=TRUE}
 df_abundances_ctrl <- read.delim("../data/abondances-ctrl.csv", sep = ",", 
                             stringsAsFactors = FALSE)
 summary(df_abundances_ctrl[ ,1:15])
-abundances_ctrl <- df_abundances_ctrl[ ,grep("LBA_|EN_", colnames(df_abundances_ctrl))]
+which_selected <- grep("LBA_|EN_", colnames(df_abundances_ctrl))
+abundances_ctrl <- df_abundances_ctrl[ ,which_selected]
 dim(abundances_ctrl)
 ```
 
@@ -72,65 +106,542 @@ condition_ctrl[grep("EN", colnames(abundances_ctrl))] <- "EN"
 condition_ctrl <- factor(condition_ctrl)
 table(condition_ctrl)
 ```
+
 ```{r}
-id_abundances_ctrl=paste(c(1,1,2,2,3,3,4,4,5,5,6,6),condition_ctrl,sep='_')
-colnames(abundances_ctrl)=id_abundances_ctrl
+id_abundances_ctrl=rep(1:6, each = 2)
+colnames(abundances_ctrl)=paste(condition_ctrl, id_abundances_ctrl, sep = "_")
 ```
 
+Unique species are extracted similarly as for case samples:
+
 ```{r extractSpecies ,cache=TRUE}
-species <- as.data.frame(sapply(df_abundances_ctrl[ ,1], function(aname) 
+species_ctrl <- as.data.frame(sapply(df_abundances_ctrl[ ,1], function(aname) 
   unlist(strsplit(aname, ";"))))
-species <- sapply(species, function(avect) {
+species_ctrl <- sapply(species_ctrl, function(avect) {
   find_unknown <- grep("unknown", avect)
   if (length(find_unknown) > 0) {
     return(avect[-find_unknown])
   } else return(avect)
 })
-species <- unlist(sapply(species, function(avect) avect[length(avect)]))
-species <- unname(species)
-species <- sapply(species,as.character)
+species_ctrl <- unlist(sapply(species_ctrl, function(avect) avect[length(avect)]))
+species_ctrl <- unname(species_ctrl)
+species_ctrl <- sapply(species_ctrl, as.character)
 ```
 
 ```{r mergedTaxon ,cache=TRUE}
-abundances_ctrl <- apply(abundances_ctrl, 2, function(acol) tapply(acol, species, sum))
-species <- rownames(abundances_ctrl)
+abundances_ctrl <- apply(abundances_ctrl, 2, function(acol) tapply(acol, species_ctrl, sum))
+species_ctrl <- rownames(abundances_ctrl)
 ```
+
+
+# Basic exploratory analyses
+
+## Exploratory analysis: comparison between case and control samples
+
+In this first part of the exploratory analyses, a comparison of case and control samples is performed in terms of total count and variety of species.
+
+```{r}
+df <- data.frame("total" = c(apply(abundances, 2, sum), 
+                             apply(abundances_ctrl, 2, sum)),
+                 "condition" = c(condition, condition_ctrl),
+                 "type" = rep(c("case", "control"),
+                              c(ncol(abundances), ncol(abundances_ctrl))),
+                 "sample" = c(paste("case", condition, id_abundances, sep = "_"),
+                              paste("ctrl", colnames(abundances_ctrl), sep = "_")))
+p <- ggplot(df, aes(x = sample, weight = total, fill = type)) + geom_bar() +
+  theme_bw() + ylab("total count") + xlab("samples") +
+  theme(axis.text.x = element_blank())
+p
+```
+
+Control samples seem to have been badly normalized with two samples with a much larger total count. Moreover, the total count between case and control samples is very different, with a much smaller total count for control samples.
+
+```{r}
+plot.new()
+library(VennDiagram)
+vd <- venn.diagram(list("case" = species, "control" = species_ctrl), 
+                   fill = brewer.pal(3, "Set2")[1:2], 
+                   cat.col = "black", cat.cex = 1.5, fontface = "bold", 
+                   filename = NULL)
+grid.draw(vd)
+system("rm VennDiagram*.log")
+```
+
+Case and control samples only have 117 bacteria in common. Extracting count data with only this common set of bacteria lead to the following comparison in terms of total count:
+
+```{r}
+common_species <- intersect(species, species_ctrl)
+write.table(common_species, file = "../data/common_species.txt", 
+            row.names = FALSE, col.names = FALSE)
+common_case <- abundances[common_species, ]
+common_ctrl <- abundances_ctrl[common_species, ]
+df <- data.frame("total" = c(apply(common_case, 2, sum), 
+                             apply(common_ctrl, 2, sum)),
+                 "condition" = c(condition, condition_ctrl),
+                 "type" = rep(c("case", "control"),
+                              c(ncol(abundances), ncol(abundances_ctrl))),
+                 "sample" = c(paste("case", condition, id_abundances, sep = "_"),
+                              paste("ctrl", colnames(abundances_ctrl), sep = "_")))
+p <- ggplot(df, aes(x = sample, weight = total, fill = type)) + geom_bar() +
+  theme_bw() + ylab("total count") + xlab("samples") +
+  theme(axis.text.x = element_blank())
+p
+```
+
+that shows an even larger differences between total counts when only common species are selected.
+
+# Differences between EN and LBA samples
+
+The first part of the analysis aims at finding signatures that are specific to EN / LBA samples. This is performed using two types of preprocessing and paired or unpaired analyses. The used method is sparse PLS-DA.
+
+## With log-transformed counts (paired analysis with 'multilevel', scaled analysis)
+
+A first PLS-DA is computed (with 10-fold CV) to check the efficiency of the method and which type of distance to use in its computation.
 
 ```{r ,cache=TRUE}
-df <- data.frame(abundances_ctrl)
-names(df) <- paste0("sample", 1:ncol(df))
-ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
-  theme_bw() + xlab("counts (sample 1)") + ggtitle("Sample 1 distribution in raw data")
+set.seed(11)
+res_plsda <- plsda(log(t(abundances)+1), condition, ncomp = nlevels(condition))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 10,
+                  progressBar = FALSE, nrepeat = 100)
+plot(res_perf, overlay = 'measure', sd = TRUE)
 ```
 
-```{r distLog ,cache=TRUE}
-ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
-  theme_bw() + xlab("counts (sample 1)") + scale_x_log10() +
-  ggtitle("Sample 1 distribution (log scale)")
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
 ```
 
-# Venn Diagram
+PLS-DA shows a good separation between the two groups and indicates that the Mahalanobis distance provides the lower overall classification error.
 
-```{r , eval=FALSE}
-library(VennDiagram)
-library(png)
+Then, sparse PLS-DA is used (with the multilevel approach) to check which number of components to select.
+
+```{r ,cache=TRUE}
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+names(clean_log) <- species
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', folds = 10, 
+                         dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+plot(res_plsda)
 ```
 
-```{r , cache=TRUE, eval=FALSE}
-venn.diagram(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)),"Venn.png",imagetype="png",lwt=2,cex=3,cat.cex=2)
+```{r}
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
 
-img <- readPNG("Venn.png")
+```{r}
+res_splsda <- splsda(clean_log, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX)
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+```
 
-if(exists("rasterImage")){
-      plot(1:5,1:5, type='n',asp = 1, xaxt="n", yaxt="n",ylab='',xlab='',main="Venn Diagram")
-      rasterImage(img,0,0,6,6)
+```{r}
+head(selectVar(res_splsda, comp = 1)$value)
+```
+
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## Tests on the extracted bacteria
+
+In this section two complementary analyses are performed: a Student test to assess whether the found bacteria are differentially abundant between the two conditions and boxplots to visualize the abundance differences.
+
+```{r,fig.height=3,fig.width=5}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = abundances[selected[ind], ], 
+                   condition = condition)
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
 }
 ```
 
-```{r venn, cache=TRUE}
-library(gplots)
-venn(list(ctrl=rownames(abundances_ctrl),sick=rownames(abundances)))
+```{r}
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  var_en <- clean_log[clean_condition == "EN",selected[ind]]
+  var_lba <- clean_log[clean_condition == "LBA",selected[ind]]
+  pval <- t.test(var_en, var_lba, paired = TRUE)$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
 ```
+
+All tests are found positive: those bacteria are found differentially present in EN/LBA samples.
+
+Moreover, among the selected species, those that are also found in the control samples are:
+
+```{r}
+also_in_common <- intersect(selected, common_species)
+also_in_common
+```
+
+For those species the comparison of the total count and relative abundance are provided in the following boxplots:
+
+```{r}
+for (ind in seq_along(also_in_common)) {
+  df <- data.frame(counts = c(abundances[also_in_common[ind], ],
+                              abundances_ctrl[also_in_common[ind], ]), 
+                   condition = factor(c(as.character(condition),
+                                        as.character(condition_ctrl))),
+                   type = rep(c("case", "control"), 
+                              c(ncol(abundances), ncol(abundances_ctrl))))
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)")) +
+    facet_grid( ~ type)
+  print(p)
+}
+```
+
+That shows that, exept for `Micoplasma bovoculi`, the differences between LBA and EN (in terms of counts) is not related to the status (case/control) of the sample.
+
+```{r}
+case_counts <- apply(abundances, 2, sum)
+ctrl_counts <- apply(abundances_ctrl, 2, sum)
+for (ind in seq_along(also_in_common)) {
+  freq_case <- abundances[also_in_common[ind], ] / case_counts
+  freq_ctrl <- abundances_ctrl[also_in_common[ind], ] / ctrl_counts
+  df <- data.frame(counts = c(freq_case, freq_ctrl), 
+                   condition = factor(c(as.character(condition),
+                                        as.character(condition_ctrl))),
+                   type = rep(c("case", "control"), 
+                              c(ncol(abundances), ncol(abundances_ctrl))))
+  p <- ggplot(df, aes(x = condition, y = counts, fill = condition)) +
+    geom_boxplot() + theme_bw() + 
+    scale_fill_manual(values = c("dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab("relative abundance") +
+    facet_grid( ~ type)
+  print(p)
+}
+```
+
+that confirms the previous conclusion.
+
+## With log-transformed counts (paired analysis with 'multilevel', unscaled analysis)
+
+The same analysis is performed without scaling the data.
+
+```{r ,cache=TRUE,fig.height=4}
+set.seed(11)
+res_plsda <- plsda(log(t(abundances)+1), condition, ncomp = nlevels(condition),
+                   scale = FALSE)
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,   # erreur si folds=10
+                  progressBar = FALSE, nrepeat = 10)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+```
+
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+```
+
+PLS-DA shows a good separation between the two groups and indicates that the Mahalanobis distance provides the lower overall classification error.
+
+Then, sparse PLS-DA is used (with the multilevel approach) to check which number of components to select.
+
+```{r ,cache=TRUE}
+clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
+names(clean_log) <- species
+clean_condition <- factor(condition[id_abundances != "29"])
+clean_id <- factor(id_abundances[id_abundances != "29"])
+
+set.seed(33)
+res_plsda <- tune.splsda(clean_log, clean_condition, 
+                         ncomp = nlevels(clean_condition),
+                         multilevel = clean_id,
+                         test.keepX = 1:20, validation = 'Mfold', folds = 10, 
+                         dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE, scale = FALSE)
+plot(res_plsda)
+```
+
+```{r}
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+Finally sparse PLS-DA is performed and the variables explaining the two types of samples are obtained:
+
+```{r}
+res_splsda <- splsda(clean_log, clean_condition, 
+                     ncomp = nlevels(clean_condition), multilevel = clean_id,
+                     keepX = sel_keepX, scale = FALSE)
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+```
+
+```{r}
+head(selectVar(res_splsda, comp = 1)$value)
+```
+
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+## Tests on the extracted bacteria
+
+In this section two complementary analyses are performed: a Student test to assess whether the found bacteria are differentially abundant between the two conditions and boxplots to visualize the abundance differences.
+
+```{r}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = abundances[selected[ind], ], 
+                   condition = condition)
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
+```
+
+```{r}
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  var_en <- clean_log[clean_condition == "EN",selected[ind]]
+  var_lba <- clean_log[clean_condition == "LBA",selected[ind]]
+  pval <- t.test(var_en, var_lba, paired = TRUE)$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
+```
+
+# Predicting the presence of viruses
+
+This section tries to make a link between abundance dataset and virus presence. It is divided into two parts: the first one performs a multivariate analysis relating the presence or absence of any virus to the abundance data. The second one aims at predicting a specific group of three viruses from abundance data.
+
+## Definition of a group of virus
+
+In the sequel, the presence/absence of viruses is predicted from abundance data. Since most virus presence is very rare (with highly unbalanced datasets), a group of three viruses RSV, PI.3, Coronavirus is defined and used as a target for prediction.
+
+The factor corresponding to these three virus presence is thus defined:
+
+```{r}
+group_virus <- apply(sapply(pathogenes, as.numeric) - 1, 2, as.logical)
+group_virus <- (group_virus[ ,1]) | (group_virus[ ,2]) | (group_virus[ ,3])
+group_virus <- as.factor(as.numeric(group_virus))
+table(group_virus)
+```
+
+## PLS-DA in EN condition (log-transformed counts)
+
+```{r ,cache=TRUE}
+sel_samples <- which(condition == "EN")
+set.seed(11)
+res_plsda <- plsda(X = log(t(abundances)+1)[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 10)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+```
+
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r,cache=TRUE,message=FALSE}
+set.seed(33)
+res_plsda <- tune.splsda(X = log(t(abundances)+1)[sel_samples, ],
+                         Y = group_virus[sel_samples], 
+                         ncomp = nlevels(group_virus),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 5, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+plot(res_plsda)
+```
+
+```{r}
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r}
+res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
+                     Y = group_virus[sel_samples], ncomp = nlevels(group_virus),
+                     keepX = c(20,20)) ## using results from "nrepeat=100"
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r}
+selectVar(res_splsda, comp = 1)$name
+```
+
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+```{r}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected[1:10])) {
+  df <- data.frame(counts = abundances[selected[ind],sel_samples], 
+                   condition = group_virus[sel_samples])
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
+```
+
+```{r}
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  all_data <- log(abundances[selected[ind],sel_samples] + 1)
+  pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
+```
+
+None of the bacteria are found differentially abundant between infected and non infected samples.
+
+Moreover, among the selected species, those that are also found in the control samples are:
+
+```{r}
+also_in_common <- intersect(selected, common_species)
+also_in_common
+```
+
+For those species the comparison of the total count and relative abundance are provided in the following boxplots:
+
+```{r}
+viruses <- c("no virus", "virus")[as.numeric(group_virus[sel_samples])]
+sel_ctrl <- which(condition_ctrl == "EN")
+for (ind in seq_along(also_in_common)) {
+  df <- data.frame(counts = c(abundances[also_in_common[ind],sel_samples],
+                              abundances_ctrl[also_in_common[ind],sel_ctrl]), 
+                   condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
+```
+
+```{r}
+case_counts <- apply(abundances[ ,sel_samples], 2, sum)
+ctrl_counts <- apply(abundances_ctrl[ ,sel_ctrl], 2, sum)
+for (ind in seq_along(also_in_common)) {
+  freq_case <- abundances[also_in_common[ind],sel_samples] / case_counts
+  freq_ctrl <- abundances_ctrl[also_in_common[ind],sel_ctrl] / ctrl_counts
+  df <- data.frame(counts = c(freq_case, freq_ctrl), 
+                   condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
+  p <- ggplot(df, aes(x = condition, y = counts, fill = condition)) +
+    geom_boxplot() + theme_bw() + 
+    scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab("relative abundance")
+  print(p)
+}
+```
+
+## PLS-DA in EN condition (log-transformed counts, unscaled)
+
+```{r}
+sel_samples <- which(condition == "EN")
+set.seed(11)
+res_plsda <- plsda(X = log(t(abundances)+1)[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus),
+                   scale = FALSE)
+```
+
+```{r ,cache=TRUE}
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 10)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+```
+
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r}
+set.seed(33)
+res_plsda <- tune.splsda(X = log(t(abundances)+1)[sel_samples, ],
+                         Y = group_virus[sel_samples], 
+                         ncomp = nlevels(group_virus),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 5, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE, scale = FALSE)
+plot(res_plsda)
+```
+
+```{r}
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r}
+res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
+                     Y = group_virus[sel_samples], ncomp = nlevels(group_virus),
+                     keepX = sel_keepX, scale = FALSE)
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN')
+```
+
+```{r}
+selectVar(res_splsda, comp = 1)$name
+```
+
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = 1)
+```
+
+```{r}
+selected <- selectVar(res_splsda, comp = 1)$name
+for (ind in seq_along(selected)) {
+  df <- data.frame(counts = abundances[selected[ind],sel_samples], 
+                   condition = group_virus[sel_samples])
+  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  print(p)
+}
+```
+
+```{r}
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  all_data <- log(abundances[selected[ind],sel_samples] + 1)
+  pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
+```
+
+
+
+
+
+
+#######################
+
 
 # New data sets with commun bacteria
 
@@ -145,15 +656,11 @@ data_supp <- cbind.data.frame(data_commun_sick,data_commun_ctrl)
 ```{r}
 log_commun_sick<-log(t(data_commun_sick)+1)
 log_commun_ctrl<-log(t(data_commun_ctrl)+1)
-
-clean_condition <- factor(condition[id_abundances != "29"])
-clean_id <- factor(id_abundances[id_abundances != "29"])
 ```
-
 
 ```{r}
 pca_raw <- pca(log_commun_sick, ncomp = ncol(data_commun_sick), 
-               logratio = 'none')
+               logratio = 'none', center =FALSE)
 ```
 
 **Adding supplementary individuals**
@@ -169,8 +676,52 @@ plotIndiv(pca_raw,
           legend = TRUE,
           style="graphics",
           title="PCA for log-tranformed data")
-points(suppIndiv[,1],suppIndiv[,2],col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1,cex=1.5)
+points(suppIndiv[,1],suppIndiv[,2],
+       col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1)
 ```
+
+```{r}
+indiv <- log_commun_sick%*%pca_raw$rotation[,1:2]
+plot(indiv[,1],indiv[,2],col=ifelse(clean_condition=='EN',"dodgerblue2","darkorange"),pch=16)
+```
+
+
+#######################
+
+```{r}
+sel_samples <- which(condition == "EN")
+set.seed(11)
+res_plsda <- plsda(X = log_commun_sick[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus),
+                   scale = FALSE)
+```
+
+```{r ,cache=TRUE}
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 10)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+```
+
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = FALSE, 
+          legend = TRUE, 
+          title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN',style="graphics")
+suppIndiv <- scale(log_commun_ctrl[which(condition_ctrl == "EN"),]
+                   ,scale = FALSE)%*%res_plsda$loadings$X
+points(suppIndiv[,1],suppIndiv[,2],pch=17)
+```
+
+```{r}
+indiv=scale(log_commun_sick[sel_samples,],scale = FALSE)%*%res_plsda$loadings$X
+plot(indiv[,1],indiv[,2],col=ifelse(group_virus[sel_samples]=='0',"dodgerblue2","darkorange"),pch=16)
+points(suppIndiv[,1],suppIndiv[,2],pch=17)
+```
+
+
+
+
+#######################
 
 # PLS-DA
 
