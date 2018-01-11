@@ -660,13 +660,12 @@ log_commun_ctrl<-log(t(data_commun_ctrl)+1)
 
 ```{r}
 pca_raw <- pca(log_commun_sick, ncomp = ncol(data_commun_sick), 
-               logratio = 'none', center =FALSE)
+               logratio = 'none',scale=TRUE)
 ```
 
 **Adding supplementary individuals**
 
 ```{r}
-suppIndiv <- log_commun_ctrl%*%pca_raw$rotation[,1:2]
 plotIndiv(pca_raw, 
           comp = c(1,2),
           pch = 16, 
@@ -676,15 +675,17 @@ plotIndiv(pca_raw,
           legend = TRUE,
           style="graphics",
           title="PCA for log-tranformed data")
+suppIndiv <- ((log_commun_ctrl-mean(log_commun_sick))/sd(log_commun_sick))%*%pca_raw$rotation[,1:2]
 points(suppIndiv[,1],suppIndiv[,2],
        col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1)
 ```
 
 ```{r}
-indiv <- log_commun_sick%*%pca_raw$rotation[,1:2]
-plot(indiv[,1],indiv[,2],col=ifelse(clean_condition=='EN',"dodgerblue2","darkorange"),pch=16)
+indiv <- scale(log_commun_sick)%*%pca_raw$rotation[,1:2]
+plot(indiv[,1],indiv[,2],col=ifelse(clean_condition=='EN',"dodgerblue2","darkorange"),pch=16,main="PCA")
+points(suppIndiv[,1],suppIndiv[,2],
+       col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1)
 ```
-
 
 #######################
 
@@ -694,7 +695,7 @@ set.seed(11)
 res_plsda <- plsda(X = log_commun_sick[sel_samples, ],
                    Y = group_virus[sel_samples], 
                    ncomp = nlevels(group_virus),
-                   scale = FALSE)
+                   scale = TRUE)
 ```
 
 ```{r ,cache=TRUE}
@@ -707,13 +708,13 @@ plot(res_perf, overlay = 'measure', sd = TRUE)
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = FALSE, 
           legend = TRUE, 
           title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN',style="graphics")
-suppIndiv <- scale(log_commun_ctrl[which(condition_ctrl == "EN"),]
-                   ,scale = FALSE)%*%res_plsda$loadings$X
+suppIndiv <- ((log_commun_ctrl[which(condition_ctrl == "EN"),]
+                  -mean(log_commun_sick[sel_samples,]))/sd(log_commun_sick[sel_samples,]))%*%res_plsda$loadings$X
 points(suppIndiv[,1],suppIndiv[,2],pch=17)
 ```
 
 ```{r}
-indiv=scale(log_commun_sick[sel_samples,],scale = FALSE)%*%res_plsda$loadings$X
+indiv=scale(log_commun_sick[sel_samples,])%*%res_plsda$loadings$X
 plot(indiv[,1],indiv[,2],col=ifelse(group_virus[sel_samples]=='0',"dodgerblue2","darkorange"),pch=16)
 points(suppIndiv[,1],suppIndiv[,2],pch=17)
 ```
