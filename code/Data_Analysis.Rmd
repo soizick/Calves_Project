@@ -152,9 +152,11 @@ ggplot(df, aes(x = sample1 +1)) + geom_histogram(bins = 50) + scale_y_log10() +
 and with a log-transformation by
 
 ```{r distLog ,cache=TRUE}
+df <- as.data.frame(log(abundances+1))
+names(df) <- paste0("sample", 1:ncol(df))
 ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) +
-  theme_bw(base_size = 18) + xlab("counts (sample 1)") + scale_x_log10() +
-  ggtitle("Sample 1 distribution (log scale)")
+  theme_bw(base_size = 18) + xlab("counts (sample 1)") + 
+  ggtitle("Sample 1 distribution (log)")
 ```
 
 It is commun in metagenomic datasets to perform TSS (*Total Sum Scaling*) before
@@ -209,8 +211,9 @@ class(abundances_ILR) <- "matrix"
 df <- data.frame(t(abundances_ILR)) 
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
-ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + theme_bw(base_size = 18) + 
-  xlab("counts (sample 1)") + ggtitle("Sample 1 distribution (ILR)")
+ggplot(df, aes(x = sample1)) + geom_histogram(bins = 50) + 
+  theme_bw(base_size = 18) + xlab("counts (sample 1)") + 
+  ggtitle("Sample 1 distribution (ILR)")
 ```
 
 * CSS transformation, which is an adaptative extension for metagenomic data of
@@ -223,8 +226,9 @@ abundances_CSS <- cumNorm(abundances_CSS)
 df <- data.frame(MRcounts(abundances_CSS))
 names(df) <- paste0("sample", 1:ncol(df))
 dim(df)
-ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) + theme_bw() + 
-  xlab("counts (sample 1)") + scale_y_log10() + scale_x_log10()
+ggplot(df, aes(x = sample1 + 1)) + geom_histogram(bins = 50) + 
+  theme_bw(base_size = 18) + xlab("counts (sample 1)") + 
+  scale_y_log10() + scale_x_log10()+ ggtitle("Sample 1 distribution (CSS)")
 ```
 
 The less asymetric distribution seems to be the one obtained with the CLR 
