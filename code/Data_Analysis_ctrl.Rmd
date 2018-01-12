@@ -161,11 +161,16 @@ plot.new()
 library(VennDiagram)
 vd <- venn.diagram(list("case" = species, "control" = species_ctrl), 
                    fill = brewer.pal(3, "Set2")[1:2], 
-                   cat.col = "black", cat.cex = 1.5, fontface = "bold", 
-                   filename = NULL)
+                   cat.col = "black", cat.cex = 1.8,cex = 1.7,cat.dist=-0.05, 
+                   fontface = "bold", filename = NULL)
 grid.draw(vd)
-system("rm VennDiagram*.log")
 ```
+
+```{r ,echo=FALSE}
+dev.off()
+file.remove(list.files(pattern = "Venn"))
+```
+
 
 Case and control samples only have 117 bacteria in common. Extracting count data with only this common set of bacteria lead to the following comparison in terms of total count:
 
@@ -198,7 +203,7 @@ The first part of the analysis aims at finding signatures that are specific to E
 
 A first PLS-DA is computed (with 10-fold CV) to check the efficiency of the method and which type of distance to use in its computation.
 
-```{r ,cache=TRUE}
+```{r ,cache=TRUE,fig.height=4,fig}
 set.seed(11)
 res_plsda <- plsda(log(t(abundances)+1), condition, ncomp = nlevels(condition))
 res_perf <- perf(res_plsda, validation = 'Mfold', folds = 10,
@@ -208,7 +213,11 @@ plot(res_perf, overlay = 'measure', sd = TRUE)
 
 ```{r}
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'PLS-DA Comp 1 - 2')
+          legend = TRUE, title = 'PLS-DA Comp 1 - 2',          
+          size.title = rel(2),
+          size.ylabel = rel(1.5),
+          size.xlabel = rel(1.5),
+          size.legend.title = rel(1.5))
 ```
 
 PLS-DA shows a good separation between the two groups and indicates that the Mahalanobis distance provides the lower overall classification error.
@@ -241,7 +250,11 @@ res_splsda <- splsda(clean_log, clean_condition,
                      ncomp = nlevels(clean_condition), multilevel = clean_id,
                      keepX = sel_keepX)
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA Comp 1 - 2')
+          legend = TRUE, title = 'sPLS-DA Comp 1 - 2',
+          size.title = rel(2),
+          size.ylabel = rel(1.5),
+          size.xlabel = rel(1.5),
+          size.legend.title = rel(1.5))
 ```
 
 ```{r}
