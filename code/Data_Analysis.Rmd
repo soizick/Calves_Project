@@ -1154,6 +1154,18 @@ plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
 
 # sPLS with regression mode - `EN` condition
 
+```{r}
+sel_samples <- which(condition == "EN")
+set.seed(1205)
+spls <- spls(X = log(t(abundances)+1)[sel_samples, ], 
+             sapply(pathogenes[sel_samples, ], as.numeric) - 1, ncomp = 2, 
+             mode = "regression", keepX = c(10,10), keepY = c(7,7))
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', 
+          ind.names = id_abundances[sel_samples], legend = F, 
+          title = 'sPLS comp 1 - 2, XY-space',size.title = rel(2))
+```
+
+
 ```{r ,cache=TRUE}
 pls <- pls(as.matrix(sapply(clean_log_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp = 2, mode = "regression")
 spls <- spls(as.matrix(sapply(clean_log_EN,as.numeric)), as.matrix(sapply(Y_EN,as.numeric)), ncomp =2, 
