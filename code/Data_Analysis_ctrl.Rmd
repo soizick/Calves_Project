@@ -189,7 +189,7 @@ df <- data.frame("total" = c(apply(common_case, 2, sum),
                  "sample" = c(paste("case", condition, id_abundances, sep = "_"),
                               paste("ctrl", colnames(abundances_ctrl), sep = "_")))
 p <- ggplot(df, aes(x = sample, weight = total, fill = type)) + geom_bar() +
-  theme_bw() + ylab("total count") + xlab("samples") +
+  theme_bw(base_size = 15) + ylab("total count") + xlab("samples") +
   theme(axis.text.x = element_blank())
 p
 ```
@@ -527,7 +527,9 @@ plot(res_perf, overlay = 'measure', sd = TRUE)
 
 ```{r}
 plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN')
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN',
+          size.title = rel(2),size.xlabel = rel(1.5),size.ylabel = rel(1.5),
+          size.legend = rel(1))
 ```
 
 ```{r,cache=TRUE,message=FALSE}
@@ -552,7 +554,9 @@ res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
                      keepX = c(20,20)) ## using results from "nrepeat=100"
 
 plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
-          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN')
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN',
+          size.title = rel(2),size.xlabel = rel(1.5),size.ylabel = rel(1.5),
+          size.legend = rel(1))
 ```
 
 ```{r}
@@ -561,20 +565,22 @@ selectVar(res_splsda, comp = 1)$name
 
 ```{r}
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
-             size.title = 1)
+             size.title = rel(1.5),size.axis = rel(1.5),size.legend = rel(1))
 ```
 
 ```{r}
 selected <- selectVar(res_splsda, comp = 1)$name
+p <- list()
 for (ind in seq_along(selected[1:10])) {
   df <- data.frame(counts = abundances[selected[ind],sel_samples], 
                    condition = group_virus[sel_samples])
-  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
     geom_boxplot() + theme_bw() + scale_y_log10() + 
     scale_fill_manual(values = c("dodgerblue2","darkorange")) +
     ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
-  print(p)
+  #print(p)
 }
+multiplot(plotlist=p,cols=2)
 ```
 
 ```{r}
@@ -601,32 +607,36 @@ For those species the comparison of the total count and relative abundance are p
 ```{r}
 viruses <- c("no virus", "virus")[as.numeric(group_virus[sel_samples])]
 sel_ctrl <- which(condition_ctrl == "EN")
-for (ind in seq_along(also_in_common)) {
+p <- list()
+for (ind in seq_along(also_in_common[1:4])) {
   df <- data.frame(counts = c(abundances[also_in_common[ind],sel_samples],
                               abundances_ctrl[also_in_common[ind],sel_ctrl]), 
                    condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
-  p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
-    geom_boxplot() + theme_bw() + scale_y_log10() + 
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw(base_size = 15) + scale_y_log10() + 
     scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
     ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
-  print(p)
+  #print(p)
 }
+multiplot(plotlist = p,cols=2)
 ```
 
 ```{r}
 case_counts <- apply(abundances[ ,sel_samples], 2, sum)
 ctrl_counts <- apply(abundances_ctrl[ ,sel_ctrl], 2, sum)
-for (ind in seq_along(also_in_common)) {
+p <- list()
+for (ind in seq_along(also_in_common[1:4])) {
   freq_case <- abundances[also_in_common[ind],sel_samples] / case_counts
   freq_ctrl <- abundances_ctrl[also_in_common[ind],sel_ctrl] / ctrl_counts
   df <- data.frame(counts = c(freq_case, freq_ctrl), 
                    condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
-  p <- ggplot(df, aes(x = condition, y = counts, fill = condition)) +
-    geom_boxplot() + theme_bw() + 
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts, fill = condition)) +
+    geom_boxplot() + theme_bw(base_size = 15) + 
     scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
     ggtitle(selected[ind]) + ylab("relative abundance")
-  print(p)
+  #print(p)
 }
+multiplot(plotlist = p,cols=2)
 ```
 
 ## PLS-DA in EN condition (log-transformed counts, unscaled)
@@ -855,3 +865,22 @@ plotVar(spls, comp = 1:2, var.names = list(X.label = TRUE, Y.label = TRUE),
         cex = c(4, 6))
 ```
 
+
+# sPLS with regression mode - `LBA` condition
+
+```{r}
+sel_samples <- which(condition == "LBA")
+set.seed(1205)
+spls <- spls(X = log(t(abundances)+1)[sel_samples, ], 
+             sapply(pathogenes[sel_samples, ], as.numeric) - 1, ncomp = 2, 
+             mode = "regression", keepX = c(10,10), keepY = c(7,7))
+plotIndiv(spls, comp = 1:2, rep.space= 'XY-variate', 
+          ind.names = id_abundances[sel_samples], legend = F, 
+          title = 'sPLS comp 1 - 2, XY-space',size.title = rel(2),
+          size.ylabel = rel(1.5), size.xlabel = rel(1.5),cex=5)
+```
+
+```{r,fig.asp=1}
+plotVar(spls, comp = 1:2, var.names = list(X.label = TRUE, Y.label = TRUE), 
+        cex = c(4, 6))
+```
