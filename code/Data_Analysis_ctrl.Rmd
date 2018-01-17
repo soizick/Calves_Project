@@ -719,6 +719,132 @@ res
 
 
 
+## PLS-DA in LBA condition (log-transformed counts)
+
+```{r ,cache=TRUE}
+sel_samples <- which(condition == "LBA")
+set.seed(11)
+res_plsda <- plsda(X = log(t(abundances)+1)[sel_samples, ],
+                   Y = group_virus[sel_samples], 
+                   ncomp = nlevels(group_virus))
+res_perf <- perf(res_plsda, validation = 'Mfold', folds = 5,
+                 progressBar = FALSE, nrepeat = 10)
+plot(res_perf, overlay = 'measure', sd = TRUE)
+```
+
+```{r}
+plotIndiv(res_plsda , comp = c(1, 2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'PLS-DA (RSV, PI.3 and Coronavirus) - EN',
+          size.title = rel(2),size.xlabel = rel(1.5),size.ylabel = rel(1.5),
+          size.legend = rel(1))
+```
+
+```{r,cache=TRUE,message=FALSE}
+set.seed(33)
+res_plsda <- tune.splsda(X = log(t(abundances)+1)[sel_samples, ],
+                         Y = group_virus[sel_samples], 
+                         ncomp = nlevels(group_virus),
+                         test.keepX = 1:20, validation = 'Mfold', 
+                         folds = 5, dist = 'mahalanobis.dist', nrepeat = 10,
+                         progressBar = FALSE)
+plot(res_plsda)
+```
+
+```{r}
+sel_keepX <- res_plsda$choice.keepX[1:2]
+sel_keepX
+```
+
+```{r}
+res_splsda <- splsda(X = log(t(abundances)+1)[sel_samples, ],
+                     Y = group_virus[sel_samples], ncomp = nlevels(group_virus),
+                     keepX = c(20,20)) ## using results from "nrepeat=100"
+
+plotIndiv(res_splsda, comp = c(1,2), ind.names = FALSE, ellipse = TRUE, 
+          legend = TRUE, title = 'sPLS-DA (RSV, PI.3 and Coronavirus) - EN',
+          size.title = rel(2),size.xlabel = rel(1.5),size.ylabel = rel(1.5),
+          size.legend = rel(1))
+```
+
+```{r}
+selectVar(res_splsda, comp = 1)$name
+```
+
+```{r}
+plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
+             size.title = rel(1.5),size.axis = rel(1.5),size.legend = rel(1))
+```
+
+```{r}
+selected <- selectVar(res_splsda, comp = 1)$name
+p <- list()
+for (ind in seq_along(selected[1:10])) {
+  df <- data.frame(counts = abundances[selected[ind],sel_samples], 
+                   condition = group_virus[sel_samples])
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw() + scale_y_log10() + 
+    scale_fill_manual(values = c("dodgerblue2","darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  #print(p)
+}
+multiplot(plotlist=p,cols=2)
+```
+
+```{r}
+all_pvals <- sapply(seq_along(selected), function(ind) {
+  all_data <- log(abundances[selected[ind],sel_samples] + 1)
+  pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
+})
+res <- data.frame(bacteria = selected, pvalue = all_pvals,
+                  FWER = p.adjust(all_pvals, method = "BH"))
+res
+```
+
+None of the bacteria are found differentially abundant between infected and non infected samples.
+
+Moreover, among the selected species, those that are also found in the control samples are:
+
+```{r}
+also_in_common <- intersect(selected, common_species)
+also_in_common
+```
+
+For those species the comparison of the total count and relative abundance are provided in the following boxplots:
+
+```{r}
+viruses <- c("no virus", "virus")[as.numeric(group_virus[sel_samples])]
+sel_ctrl <- which(condition_ctrl == "EN")
+p <- list()
+for (ind in seq_along(also_in_common[1:4])) {
+  df <- data.frame(counts = c(abundances[also_in_common[ind],sel_samples],
+                              abundances_ctrl[also_in_common[ind],sel_ctrl]), 
+                   condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
+    geom_boxplot() + theme_bw(base_size = 15) + scale_y_log10() + 
+    scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
+  #print(p)
+}
+multiplot(plotlist = p,cols=2)
+```
+
+```{r}
+case_counts <- apply(abundances[ ,sel_samples], 2, sum)
+ctrl_counts <- apply(abundances_ctrl[ ,sel_ctrl], 2, sum)
+p <- list()
+for (ind in seq_along(also_in_common[1:4])) {
+  freq_case <- abundances[also_in_common[ind],sel_samples] / case_counts
+  freq_ctrl <- abundances_ctrl[also_in_common[ind],sel_ctrl] / ctrl_counts
+  df <- data.frame(counts = c(freq_case, freq_ctrl), 
+                   condition = factor(c(viruses, rep("control", length(sel_ctrl)))))
+  p[[ind]] <- ggplot(df, aes(x = condition, y = counts, fill = condition)) +
+    geom_boxplot() + theme_bw(base_size = 15) + 
+    scale_fill_manual(values = c("green", "dodgerblue2", "darkorange")) +
+    ggtitle(selected[ind]) + ylab("relative abundance")
+  #print(p)
+}
+multiplot(plotlist = p,cols=2)
+```
 
 
 
