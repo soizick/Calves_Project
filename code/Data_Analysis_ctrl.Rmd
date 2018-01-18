@@ -882,10 +882,10 @@ plotIndiv(pca_raw,
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           style="graphics",
-          title="PCA for log-tranformed data")
+          title="PCA for log-tranformed data",cex=1.5,size.xlabel = rel(1.5),size.legend = rel(1.5))
 suppIndiv <- ((log_commun_ctrl-mean(log_commun_sick))/sd(log_commun_sick))%*%pca_raw$rotation[,1:2]
 points(suppIndiv[,1],suppIndiv[,2],
-       col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1)
+       col=ifelse(condition_ctrl=='EN',"dodgerblue2","darkorange"),pch=1,cex=1.5)
 ```
 
 ```{r}
