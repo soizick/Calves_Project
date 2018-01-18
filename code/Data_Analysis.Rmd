@@ -288,10 +288,10 @@ plotIndiv(pca_raw,
           col.per.group = color.mixo(1:2),
           legend = TRUE,
           title="PCA for log-tranformed data",
-          size.title = rel(2),
+          size.title = rel(2.5),
           size.ylabel = rel(1.5),
           size.xlabel = rel(1.5),
-          size.legend.title = rel(1.5))
+          size.legend.title = rel(1.5),cex=4)
 ```
 
 **TSS+CLR**
