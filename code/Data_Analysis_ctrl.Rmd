@@ -347,7 +347,7 @@ all_pvals <- sapply(seq_along(selected), function(ind) {
   pval <- t.test(var_en, var_lba, paired = TRUE)$p.value
 })
 res <- data.frame(bacteria = selected, pvalue = all_pvals,
-                  FWER = p.adjust(all_pvals, method = "BH"))
+                  FDR = p.adjust(all_pvals, method = "BH"))
 res
 ```
 
@@ -491,7 +491,7 @@ all_pvals <- sapply(seq_along(selected), function(ind) {
   pval <- t.test(var_en, var_lba, paired = TRUE)$p.value
 })
 res <- data.frame(bacteria = selected, pvalue = all_pvals,
-                  FWER = p.adjust(all_pvals, method = "BH"))
+                  FDR = p.adjust(all_pvals, method = "BH"))
 res
 ```
 
@@ -589,7 +589,7 @@ all_pvals <- sapply(seq_along(selected), function(ind) {
   pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
 })
 res <- data.frame(bacteria = selected, pvalue = all_pvals,
-                  FWER = p.adjust(all_pvals, method = "BH"))
+                  FDR = p.adjust(all_pvals, method = "BH"))
 res
 ```
 
@@ -713,7 +713,7 @@ all_pvals <- sapply(seq_along(selected), function(ind) {
   pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
 })
 res <- data.frame(bacteria = selected, pvalue = all_pvals,
-                  FWER = p.adjust(all_pvals, method = "BH"))
+                  FDR = p.adjust(all_pvals, method = "BH"))
 res
 ```
 
@@ -796,7 +796,7 @@ all_pvals <- sapply(seq_along(selected), function(ind) {
   pval <- t.test(all_data ~ group_virus[sel_samples])$p.value
 })
 res <- data.frame(bacteria = selected, pvalue = all_pvals,
-                  FWER = p.adjust(all_pvals, method = "BH"))
+                  FDR = p.adjust(all_pvals, method = "BH"))
 res
 ```
 
