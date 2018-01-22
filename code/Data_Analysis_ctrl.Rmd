@@ -157,12 +157,12 @@ p
 
 Control samples seem to have been badly normalized with two samples with a much larger total count. Moreover, the total count between case and control samples is very different, with a much smaller total count for control samples.
 
-```{r}
+```{r,fig.height=2.5}
 plot.new()
 library(VennDiagram)
 vd <- venn.diagram(list("case" = species, "control" = species_ctrl), 
                    fill = brewer.pal(3, "Set2")[1:2], 
-                   cat.col = "black", cat.cex = 1.8,cex = 1.7,cat.dist=-0.05, 
+                   cat.col = "black", cat.cex = 1.8,cex = 1.8,cat.dist=-0.05, 
                    fontface = "bold", filename = NULL)
 grid.draw(vd)
 ```
@@ -175,7 +175,7 @@ file.remove(list.files(pattern = "Venn"))
 
 Case and control samples only have 117 bacteria in common. Extracting count data with only this common set of bacteria lead to the following comparison in terms of total count:
 
-```{r}
+```{r,fig.height=4,fig.width=8}
 common_species <- intersect(species, species_ctrl)
 write.table(common_species, file = "../data/common_species.txt", 
             row.names = FALSE, col.names = FALSE)
@@ -230,6 +230,9 @@ clean_log <- data.frame(log(t(abundances[ ,id_abundances != "29"]) + 1))
 names(clean_log) <- species
 clean_condition <- factor(condition[id_abundances != "29"])
 clean_id <- factor(id_abundances[id_abundances != "29"])
+```
+
+```{r,cache=TRUE}
 
 set.seed(33)
 res_plsda <- tune.splsda(clean_log, clean_condition, 
@@ -263,9 +266,9 @@ head(selectVar(res_splsda, comp = 1)$value)
 ```
 
 ```{r}
-par(mfrow=c(1,2))
+par(mfrow=c(1,1))
 plotLoadings(res_splsda, comp = 1, method = 'mean', contrib = 'max',
-             size.title = 1.3, size.xlabel = rel(1.5),legend = F)
+             size.title = 1.3,size.name = 0.7,legend = F)
 plotLoadings(res_splsda, comp = 2, method = 'mean', contrib = 'max',
              size.title = 1.3,legend = F)
 par(mfrow=c(1,1))
@@ -325,14 +328,14 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 ```
 
 
-```{r,fig.height=3,fig.width=5,message=FALSE}
+```{r,fig.height=7,fig.width=8,message=FALSE}
 selected <- selectVar(res_splsda, comp = 1)$name
 p<-list()
 for (ind in seq_along(selected)) {
   df <- data.frame(counts = abundances[selected[ind], ], 
                    condition = condition)
   p[[ind]] <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
-    geom_boxplot() + theme_bw(base_size = 13) + scale_y_log10() + 
+    geom_boxplot() + theme_bw(base_size = 10) + scale_y_log10() + 
     scale_fill_manual(values = c("dodgerblue2","darkorange")) +
     ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)"))
   #print(p[ind])
@@ -372,7 +375,7 @@ for (ind in seq_along(also_in_common)) {
                    type = rep(c("case", "control"), 
                               c(ncol(abundances), ncol(abundances_ctrl))))
   p <- ggplot(df, aes(x = condition, y = counts + 1, fill = condition)) +
-    geom_boxplot() + theme_bw(base_size = 15) + scale_y_log10() + 
+    geom_boxplot() + theme_bw(base_size = 10) + scale_y_log10() + 
     scale_fill_manual(values = c("dodgerblue2", "darkorange")) +
     ggtitle(selected[ind]) + ylab(expression(log[10] ~ "(count + 1)")) +
     facet_grid( ~ type)
@@ -717,8 +720,6 @@ res <- data.frame(bacteria = selected, pvalue = all_pvals,
 res
 ```
 
-
-
 ## PLS-DA in LBA condition (log-transformed counts)
 
 ```{r ,cache=TRUE}
@@ -846,10 +847,7 @@ for (ind in seq_along(also_in_common[1:4])) {
 multiplot(plotlist = p,cols=2)
 ```
 
-
-
 #######################
-
 
 # New data sets with commun bacteria
 

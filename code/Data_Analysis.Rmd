@@ -239,7 +239,7 @@ transformation and the log-transformed CSS.
 Distributions of all samples according to the type of transformation and the 
 sample is provided below:
 
-```{r allBoxplots, message=FALSE ,cache=TRUE}
+```{r allBoxplots, message=FALSE ,cache=TRUE,fig.width=9}
 df_log <- log10(abundances + 1)
 df_log <- data.frame(df_log)
 rownames(df_log) <- NULL
@@ -257,7 +257,7 @@ df_CSS <- melt(df_CSS)
 all_sizes <- c(nrow(df_log), nrow(df_CLR), nrow(df_ILR), nrow(df_CSS))
 df <- data.frame(rbind(df_log, df_CLR, df_ILR, df_CSS),
                  "type" = rep(c("log", "CLR", "ILR", "log-CSS"), all_sizes))
-ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw(base_size = 18) +
+ggplot(df, aes(x = variable, y = value)) + geom_boxplot() + theme_bw(base_size = 15) +
   facet_wrap(~ type, scales = "free_y") + xlab("samples") +
   theme(axis.text.x = element_blank())
 ```
